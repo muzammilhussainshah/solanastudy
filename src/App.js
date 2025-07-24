@@ -14,6 +14,10 @@ const ClosingPriceTable = () => {
     totalChange: 0,
     changePercent: 0
   });
+  const [selectedWeekdays, setSelectedWeekdays] = useState([]);
+  const [filterMode, setFilterMode] = useState("day"); // "day" or "date" or "hour"
+  const [selectedDates, setSelectedDates] = useState([]);
+  const [selectedHours, setSelectedHours] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,8 +131,119 @@ const ClosingPriceTable = () => {
     return <div className="error-container">{error}</div>;
   }
 
+  // Filter data by selected weekdays, dates, or hours
+  const filteredData = processedData.filter(row => {
+    if (filterMode === "day") {
+      return selectedWeekdays.includes(row.compactTime.split(",")[0]);
+    } else if (filterMode === "date") {
+      const datePart = row.compactTime.split(",")[1].trim(); // "05/02"
+      const dayOfMonth = parseInt(datePart.split("/")[1], 10);
+      return selectedDates.includes(dayOfMonth.toString());
+    } else if (filterMode === "hour") {
+      // Extract hour from compactTime: "Fri, 05/02, 10:00" → "10"
+      const hourPart = row.compactTime.split(",")[2].trim().split(":")[0]; // "10"
+      return selectedHours.includes(hourPart);
+    }
+    return true;
+  });
+
   return (
     <div className="trading-container">
+      {/* Filter Mode Toggle */}
+      <div style={{ marginBottom: "12px" }}>
+        <label>
+          <input
+            type="radio"
+            value="day"
+            checked={filterMode === "day"}
+            onChange={() => setFilterMode("day")}
+          />
+          Day
+        </label>
+        <label style={{ marginLeft: "16px" }}>
+          <input
+            type="radio"
+            value="date"
+            checked={filterMode === "date"}
+            onChange={() => setFilterMode("date")}
+          />
+          Date
+        </label>
+        <label style={{ marginLeft: "16px" }}>
+          <input
+            type="radio"
+            value="hour"
+            checked={filterMode === "hour"}
+            onChange={() => setFilterMode("hour")}
+          />
+          Hour
+        </label>
+      </div>
+      {/* Show only the relevant filter */}
+      {filterMode === "day" ? (
+        <div className="weekday-filter" style={{ marginBottom: "16px" }}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <label key={day} style={{ marginRight: "10px" }}>
+              <input
+                type="checkbox"
+                checked={selectedWeekdays.includes(day)}
+                onChange={() => {
+                  setSelectedWeekdays(prev =>
+                    prev.includes(day)
+                      ? prev.filter(d => d !== day)
+                      : [...prev, day]
+                  );
+                }}
+              />
+              {day}
+            </label>
+          ))}
+        </div>
+      ) : filterMode === "date" ? (
+        <div className="date-filter" style={{ marginBottom: "16px" }}>
+          {Array.from({length: 31}, (_, i) => (i+1)).map(date => (
+            <label key={date} style={{ marginRight: "6px" }}>
+              <input
+                type="checkbox"
+                checked={selectedDates.includes(date.toString())}
+                onChange={() => {
+                  setSelectedDates(prev =>
+                    prev.includes(date.toString())
+                      ? prev.filter(d => d !== date.toString())
+                      : [...prev, date.toString()]
+                  );
+                }}
+              />
+              {date}
+            </label>
+          ))}
+        </div>
+      ) : (
+        filterMode === "hour" && (
+          <div className="hour-filter" style={{ marginBottom: "16px" }}>
+            {Array.from({length: 24}, (_, i) => i).map(hour => {
+              const hourStr = hour.toString().padStart(2, '0');
+              return (
+                <label key={hour} style={{ marginRight: "6px" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedHours.includes(hourStr)}
+                    onChange={() => {
+                      setSelectedHours(prev =>
+                        prev.includes(hourStr)
+                          ? prev.filter(h => h !== hourStr)
+                          : [...prev, hourStr]
+                      );
+                    }}
+                  />
+                  {hourStr}
+                </label>
+              );
+            })}
+          </div>
+        )
+      )}
+
       {/* Compact Table at the top */}
       <div className="compact-table-container">
         <table className="compact-table">
@@ -139,7 +254,7 @@ const ClosingPriceTable = () => {
             </tr>
           </thead>
           <tbody>
-            {processedData.map((row, index) => (
+            {filteredData.map((row, index) => (
               <tr key={index}>
                 <td>{row.compactTime}</td>
                 <td>${row.closingPrice}</td>
@@ -149,7 +264,7 @@ const ClosingPriceTable = () => {
         </table>
       </div>
       
-      <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {processedData.length} Periods</h2>
+      <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {filteredData.length} Periods</h2>
       
       {/* Summary Cards */}
       <div className="summary-grid">
@@ -186,7 +301,7 @@ const ClosingPriceTable = () => {
             </tr>
           </thead>
           <tbody className="table-body">
-            {processedData.map((row, index) => (
+            {filteredData.map((row, index) => (
               <tr key={index} className="table-row">
                 <td className="table-cell">{row.period}</td>
                 <td className="table-cell table-cell-mono">{row.time}</td>
@@ -204,7 +319,7 @@ const ClosingPriceTable = () => {
       </div>
 
       <div className="footer-text">
-        Total periods: {processedData.length} | Complete dataset with historical data | Powered by Binance API
+        Total periods: {filteredData.length} | Complete dataset with historical data | Powered by Binance API
       </div>
     </div>
   );
