@@ -36,3 +36,150 @@
     transform: rotate(360deg);
   }
 }
+
+/* Trading Data Component Styles */
+.trading-container {
+  padding: 1.5rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  background-color: white;
+}
+
+.trading-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .summary-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.summary-card {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.summary-card-blue {
+  background-color: #eff6ff;
+}
+
+.summary-card-green {
+  background-color: #ecfdf5;
+}
+
+.summary-card-red {
+  background-color: #fef2f2;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.summary-value-blue {
+  color: #2563eb;
+}
+
+.summary-value-green {
+  color: #16a34a;
+}
+
+.summary-value-red {
+  color: #dc2626;
+}
+
+.data-table-container {
+  overflow-x: auto;
+  background-color: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.data-table {
+  width: 100%;
+}
+
+.table-header {
+  background-color: #f9fafb;
+}
+
+.table-header-cell {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table-header-cell-right {
+  text-align: right;
+}
+
+.table-body {
+  background-color: white;
+}
+
+.table-row {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-row:hover {
+  background-color: #f9fafb;
+}
+
+.table-cell {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.table-cell-mono {
+  font-family: monospace;
+}
+
+.table-cell-right {
+  text-align: right;
+}
+
+.table-cell-bold {
+  font-weight: 700;
+}
+
+.table-cell-green {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.table-cell-red {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.table-cell-gray {
+  color: #4b5563;
+}
+
+.footer-text {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
