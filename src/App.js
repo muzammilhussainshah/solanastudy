@@ -19,26 +19,43 @@ const ClosingPriceTable = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Using CORS proxy to avoid CORS issues
-        const response = await axios.get('https://api.binance.com/api/v3/klines', {
+        
+        // First API call to get most recent data
+        const recentDataResponse = await axios.get('https://api.binance.com/api/v3/klines', {
           params: {
             symbol: 'SOLUSDT',
             interval: '1h',
             limit: 1000
           }
         });
-        console.log(response.data.length)
+
+        // Get the oldest timestamp from the first batch
+        const oldestTimestamp = recentDataResponse.data[0][0];
+        
+        // Second API call to get older data
+        const olderDataResponse = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: 'SOLUSDT',
+            interval: '1h',
+            limit: 1000,
+            endTime: oldestTimestamp - 1 // Use the timestamp right before our oldest data
+          }
+        });
+
+        // Combine both datasets (older data first, then recent data)
+        const combinedData = [...olderDataResponse.data, ...recentDataResponse.data];
+
         // Process data to show closing price with time
-        const processed = response.data.map((row, index) => {
+        const processed = combinedData.map((row, index) => {
           const timestamp = row[0];
           const closingPrice = parseFloat(row[4]);
           const volume = parseFloat(row[5]);
-
+          
           // Convert timestamp to readable time
           const date = new Date(timestamp);
           const timeString = date.toLocaleString('en-US', {
             month: '2-digit',
-            day: '2-digit',
+            day: '2-digit', 
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
@@ -49,14 +66,24 @@ const ClosingPriceTable = () => {
             time: timeString,
             closingPrice: closingPrice.toFixed(2),
             volume: volume.toLocaleString(),
-            change: index > 0 ? (closingPrice - parseFloat(response.data[index - 1][4])).toFixed(2) : '0.00'
+            change: index > 0 ? (closingPrice - parseFloat(combinedData[index-1][4])).toFixed(2) : '0.00',
+            timestamp: timestamp // Store timestamp for sorting
           };
         });
 
-        setProcessedData(processed);
+        // Sort by timestamp to ensure chronological order
+        const sortedData = processed.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Update period numbers after sorting
+        const finalProcessedData = sortedData.map((item, index) => ({
+          ...item,
+          period: index + 1
+        }));
+
+        setProcessedData(finalProcessedData);
 
         // Calculate summary stats
-        const prices = processed.map(d => parseFloat(d.closingPrice));
+        const prices = finalProcessedData.map(d => parseFloat(d.closingPrice));
         const highestPrice = Math.max(...prices);
         const lowestPrice = Math.min(...prices);
         const firstPrice = prices[0];
@@ -95,7 +122,7 @@ const ClosingPriceTable = () => {
   return (
     <div className="trading-container">
       <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {processedData.length} Periods</h2>
-
+      
       {/* Summary Cards */}
       <div className="summary-grid">
         <div className="summary-card summary-card-blue">
@@ -136,8 +163,9 @@ const ClosingPriceTable = () => {
                 <td className="table-cell">{row.period}</td>
                 <td className="table-cell table-cell-mono">{row.time}</td>
                 <td className="table-cell table-cell-right table-cell-bold">${row.closingPrice}</td>
-                <td className={`table-cell table-cell-right ${parseFloat(row.change) >= 0 ? 'table-cell-green' : 'table-cell-red'
-                  }`}>
+                <td className={`table-cell table-cell-right ${
+                  parseFloat(row.change) >= 0 ? 'table-cell-green' : 'table-cell-red'
+                }`}>
                   {parseFloat(row.change) >= 0 ? '+' : ''}${row.change}
                 </td>
                 <td className="table-cell table-cell-right table-cell-gray">{row.volume}</td>
@@ -148,7 +176,7 @@ const ClosingPriceTable = () => {
       </div>
 
       <div className="footer-text">
-        Total periods: {processedData.length} | Complete dataset with all available periods | Powered by Binance API
+        Total periods: {processedData.length} | Complete dataset with historical data | Powered by Binance API
       </div>
     </div>
   );
