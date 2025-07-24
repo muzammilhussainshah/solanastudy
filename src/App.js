@@ -18,6 +18,7 @@ const ClosingPriceTable = () => {
   const [filterMode, setFilterMode] = useState("day"); // "day" or "date" or "hour"
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedHours, setSelectedHours] = useState([]);
+  const [selectedDayHourCombos, setSelectedDayHourCombos] = useState([]); // e.g., ['Mon-09', 'Fri-23']
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,20 +35,37 @@ const ClosingPriceTable = () => {
         });
 
         // Get the oldest timestamp from the first batch
-        const oldestTimestamp = recentDataResponse.data[0][0];
+        const oldestTimestamp1 = recentDataResponse.data[0][0];
         
         // Second API call to get older data
-        const olderDataResponse = await axios.get('https://api.binance.com/api/v3/klines', {
+        const olderDataResponse1 = await axios.get('https://api.binance.com/api/v3/klines', {
           params: {
             symbol: 'SOLUSDT',
             interval: '1h',
             limit: 1000,
-            endTime: oldestTimestamp - 1 // Use the timestamp right before our oldest data
+            endTime: oldestTimestamp1 - 1 // Use the timestamp right before our oldest data
           }
         });
 
-        // Combine both datasets (older data first, then recent data)
-        const combinedData = [...olderDataResponse.data, ...recentDataResponse.data];
+        // Get the oldest timestamp from the second batch
+        const oldestTimestamp2 = olderDataResponse1.data[0][0];
+
+        // Third API call to get even older data
+        const olderDataResponse2 = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: 'SOLUSDT',
+            interval: '1h',
+            limit: 1000,
+            endTime: oldestTimestamp2 - 1
+          }
+        });
+
+        // Combine all datasets (oldest first)
+        const combinedData = [
+          ...olderDataResponse2.data,
+          ...olderDataResponse1.data,
+          ...recentDataResponse.data
+        ];
 
         // Process data to show closing price with time
         const processed = combinedData.map((row, index) => {
@@ -134,13 +152,17 @@ const ClosingPriceTable = () => {
   // Filter data by selected weekdays, dates, or hours
   const filteredData = processedData.filter(row => {
     if (filterMode === "day") {
-      return selectedWeekdays.includes(row.compactTime.split(",")[0]);
+      // New: filter by selected day-hour combos
+      const day = row.compactTime.split(",")[0];
+      const hour = row.compactTime.split(",")[2].trim().split(":")[0];
+      const combo = `${day}-${hour}`;
+      if (selectedDayHourCombos.length === 0) return false;
+      return selectedDayHourCombos.includes(combo);
     } else if (filterMode === "date") {
       const datePart = row.compactTime.split(",")[1].trim(); // "05/02"
       const dayOfMonth = parseInt(datePart.split("/")[1], 10);
       return selectedDates.includes(dayOfMonth.toString());
     } else if (filterMode === "hour") {
-      // Extract hour from compactTime: "Fri, 05/02, 10:00" → "10"
       const hourPart = row.compactTime.split(",")[2].trim().split(":")[0]; // "10"
       return selectedHours.includes(hourPart);
     }
@@ -181,26 +203,96 @@ const ClosingPriceTable = () => {
       </div>
       {/* Show only the relevant filter */}
       {filterMode === "day" ? (
-        <div className="weekday-filter" style={{ marginBottom: "16px" }}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <label key={day} style={{ marginRight: "10px" }}>
-              <input
-                type="checkbox"
-                checked={selectedWeekdays.includes(day)}
-                onChange={() => {
-                  setSelectedWeekdays(prev =>
-                    prev.includes(day)
-                      ? prev.filter(d => d !== day)
-                      : [...prev, day]
-                  );
-                }}
-              />
-              {day}
-            </label>
-          ))}
-        </div>
+        <>
+          {/* Improved Select/Unselect All Buttons above the grid */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              style={{
+                padding: '6px 18px',
+                background: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: 15,
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)',
+                transition: 'background 0.2s',
+              }}
+              onMouseOver={e => e.currentTarget.style.background = '#1565c0'}
+              onMouseOut={e => e.currentTarget.style.background = '#1976d2'}
+              onClick={() => setSelectedDayHourCombos(
+                [].concat(...['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day =>
+                  Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`)
+                ))
+              )}
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              style={{
+                padding: '6px 18px',
+                background: '#e0e0e0',
+                color: '#333',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: 15,
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                transition: 'background 0.2s',
+              }}
+              onMouseOver={e => e.currentTarget.style.background = '#bdbdbd'}
+              onMouseOut={e => e.currentTarget.style.background = '#e0e0e0'}
+              onClick={() => setSelectedDayHourCombos([])}
+            >
+              Unselect All
+            </button>
+          </div>
+          {/* Day-Hour Grid Filter */}
+          <div className="day-hour-grid-filter" style={{ marginBottom: "16px", overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '2px 6px' }}></th>
+                  {Array.from({length: 24}, (_, i) => (
+                    <th key={i} style={{ padding: '2px 6px', fontSize: 12 }}>{i.toString().padStart(2, '0')}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <tr key={day}>
+                    <td style={{ padding: '2px 6px', fontWeight: 'bold', fontSize: 12 }}>{day}</td>
+                    {Array.from({length: 24}, (_, i) => {
+                      const hourStr = i.toString().padStart(2, '0');
+                      const combo = `${day}-${hourStr}`;
+                      return (
+                        <td key={combo} style={{ padding: '2px 6px', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedDayHourCombos.includes(combo)}
+                            onChange={() => {
+                              setSelectedDayHourCombos(prev =>
+                                prev.includes(combo)
+                                  ? prev.filter(c => c !== combo)
+                                  : [...prev, combo]
+                              );
+                            }}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : filterMode === "date" ? (
-        <div className="date-filter" style={{ marginBottom: "16px" }}>
+        <div className="date-filter" style={{ marginBottom: "16px", display: 'flex', alignItems: 'center' }}>
           {Array.from({length: 31}, (_, i) => (i+1)).map(date => (
             <label key={date} style={{ marginRight: "6px" }}>
               <input
@@ -217,10 +309,17 @@ const ClosingPriceTable = () => {
               {date}
             </label>
           ))}
+          <button
+            type="button"
+            style={{ marginLeft: 8, marginRight: 16 }}
+            onClick={() => setSelectedDates(selectedDates.length === 31 ? [] : Array.from({length: 31}, (_, i) => (i+1).toString()))}
+          >
+            {selectedDates.length === 31 ? 'Unselect All' : 'Select All'}
+          </button>
         </div>
       ) : (
         filterMode === "hour" && (
-          <div className="hour-filter" style={{ marginBottom: "16px" }}>
+          <div className="hour-filter" style={{ marginBottom: "16px", display: 'flex', alignItems: 'center' }}>
             {Array.from({length: 24}, (_, i) => i).map(hour => {
               const hourStr = hour.toString().padStart(2, '0');
               return (
@@ -240,6 +339,13 @@ const ClosingPriceTable = () => {
                 </label>
               );
             })}
+            <button
+              type="button"
+              style={{ marginLeft: 8, marginRight: 16 }}
+              onClick={() => setSelectedHours(selectedHours.length === 24 ? [] : Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')))}
+            >
+              {selectedHours.length === 24 ? 'Unselect All' : 'Select All'}
+            </button>
           </div>
         )
       )}
