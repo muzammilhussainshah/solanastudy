@@ -37,6 +37,46 @@
   }
 }
 
+/* Compact Table Styles */
+.compact-table-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.25rem;
+  background-color: #f9fafb;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.compact-table {
+  width: 100%;
+  font-size: 0.7rem;
+  border-collapse: collapse;
+}
+
+.compact-table th {
+  background-color: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.compact-table td {
+  padding: 0.15rem 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.compact-table tr:nth-child(even) {
+  background-color: #ffffff;
+}
+
+.compact-table tr:hover {
+  background-color: #eff6ff;
+}
+
 /* Trading Data Component Styles */
 .trading-container {
   padding: 1.5rem;

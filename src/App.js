@@ -54,16 +54,24 @@ const ClosingPriceTable = () => {
           // Convert timestamp to readable time
           const date = new Date(timestamp);
           const timeString = date.toLocaleString('en-US', {
+            weekday: 'short', // Add day of week
             month: '2-digit',
             day: '2-digit', 
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
           });
+          
+          // Create a more compact time format for the small table
+          const weekday = date.toLocaleString('en-US', { weekday: 'short' });
+          const monthDay = date.toLocaleString('en-US', { month: '2-digit', day: '2-digit' });
+          const hourMinute = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+          const compactTimeString = `${weekday}, ${monthDay}, ${hourMinute}`;
 
           return {
             period: index + 1,
             time: timeString,
+            compactTime: compactTimeString,
             closingPrice: closingPrice.toFixed(2),
             volume: volume.toLocaleString(),
             change: index > 0 ? (closingPrice - parseFloat(combinedData[index-1][4])).toFixed(2) : '0.00',
@@ -121,6 +129,26 @@ const ClosingPriceTable = () => {
 
   return (
     <div className="trading-container">
+      {/* Compact Table at the top */}
+      <div className="compact-table-container">
+        <table className="compact-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {processedData.map((row, index) => (
+              <tr key={index}>
+                <td>{row.compactTime}</td>
+                <td>${row.closingPrice}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
       <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {processedData.length} Periods</h2>
       
       {/* Summary Cards */}
