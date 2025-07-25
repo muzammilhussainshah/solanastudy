@@ -60,8 +60,50 @@ const ClosingPriceTable = () => {
           }
         });
 
+        // Get the oldest timestamp from the third batch
+        const oldestTimestamp3 = olderDataResponse2.data[0][0];
+
+        // Fourth API call
+        const olderDataResponse3 = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: 'SOLUSDT',
+            interval: '1h',
+            limit: 1000,
+            endTime: oldestTimestamp3 - 1
+          }
+        });
+
+        // Get the oldest timestamp from the fourth batch
+        const oldestTimestamp4 = olderDataResponse3.data[0][0];
+
+        // Fifth API call
+        const olderDataResponse4 = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: 'SOLUSDT',
+            interval: '1h',
+            limit: 1000,
+            endTime: oldestTimestamp4 - 1
+          }
+        });
+
+        // Get the oldest timestamp from the fifth batch
+        const oldestTimestamp5 = olderDataResponse4.data[0][0];
+
+        // Sixth API call
+        const olderDataResponse5 = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: 'SOLUSDT',
+            interval: '1h',
+            limit: 1000,
+            endTime: oldestTimestamp5 - 1
+          }
+        });
+
         // Combine all datasets (oldest first)
         const combinedData = [
+          ...olderDataResponse5.data,
+          ...olderDataResponse4.data,
+          ...olderDataResponse3.data,
           ...olderDataResponse2.data,
           ...olderDataResponse1.data,
           ...recentDataResponse.data
