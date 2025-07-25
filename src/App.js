@@ -263,30 +263,52 @@ const ClosingPriceTable = () => {
                 </tr>
               </thead>
               <tbody>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <tr key={day}>
-                    <td style={{ padding: '2px 6px', fontWeight: 'bold', fontSize: 12 }}>{day}</td>
-                    {Array.from({length: 24}, (_, i) => {
-                      const hourStr = i.toString().padStart(2, '0');
-                      const combo = `${day}-${hourStr}`;
-                      return (
-                        <td key={combo} style={{ padding: '2px 6px', textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedDayHourCombos.includes(combo)}
-                            onChange={() => {
-                              setSelectedDayHourCombos(prev =>
-                                prev.includes(combo)
-                                  ? prev.filter(c => c !== combo)
-                                  : [...prev, combo]
-                              );
-                            }}
-                          />
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
+                  // For each day, get all 24 combos
+                  const allCombosForDay = Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`);
+                  const allSelected = allCombosForDay.every(combo => selectedDayHourCombos.includes(combo));
+                  return (
+                    <tr key={day}>
+                      <td style={{ padding: '2px 6px', fontWeight: 'bold', fontSize: 12 }}>{day}</td>
+                      {Array.from({length: 24}, (_, i) => {
+                        const hourStr = i.toString().padStart(2, '0');
+                        const combo = `${day}-${hourStr}`;
+                        return (
+                          <td key={combo} style={{ padding: '2px 6px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedDayHourCombos.includes(combo)}
+                              onChange={() => {
+                                setSelectedDayHourCombos(prev =>
+                                  prev.includes(combo)
+                                    ? prev.filter(c => c !== combo)
+                                    : [...prev, combo]
+                                );
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
+                      {/* All checkbox at the end of the row */}
+                      <td style={{ padding: '2px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: 12 }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              // Add all combos for this day
+                              setSelectedDayHourCombos(prev => Array.from(new Set([...prev, ...allCombosForDay])));
+                            } else {
+                              // Remove all combos for this day
+                              setSelectedDayHourCombos(prev => prev.filter(combo => !allCombosForDay.includes(combo)));
+                            }
+                          }}
+                        />
+                        All
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
