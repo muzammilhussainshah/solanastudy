@@ -393,6 +393,9 @@ const ClosingPriceTable = () => {
       </div>
       
       <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {filteredData.length} Periods</h2>
+
+      {/* Pattern Analysis Tips Section */}
+      <PatternAnalysisTips processedData={processedData} />
       
       {/* Summary Cards */}
       <div className="summary-grid">
@@ -451,6 +454,94 @@ const ClosingPriceTable = () => {
 
       <div className="footer-text">
         Total periods: {filteredData.length} | Complete dataset with historical data | Powered by Binance API
+      </div>
+    </div>
+  );
+};
+
+// PatternAnalysisTips: Analyzes closing prices for patterns and displays tips
+const PatternAnalysisTips = ({ processedData }) => {
+  if (!processedData || processedData.length === 0) return null;
+
+  // Helper: group by key
+  const groupBy = (arr, keyFn) => {
+    return arr.reduce((acc, item) => {
+      const key = keyFn(item);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+  };
+
+  // 1. Day-of-week analysis
+  const byDay = groupBy(processedData, row => row.compactTime.split(",")[0]);
+  const dayAverages = Object.entries(byDay).map(([day, rows]) => ({
+    day,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  dayAverages.sort((a, b) => b.avg - a.avg);
+
+  // 2. Hour-of-day analysis
+  const byHour = groupBy(processedData, row => row.compactTime.split(",")[2].trim().split(":")[0]);
+  const hourAverages = Object.entries(byHour).map(([hour, rows]) => ({
+    hour,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  hourAverages.sort((a, b) => b.avg - a.avg);
+
+  // 3. Date-of-month analysis
+  const byDate = groupBy(processedData, row => row.compactTime.split(",")[1].trim().split("/")[1]);
+  const dateAverages = Object.entries(byDate).map(([date, rows]) => ({
+    date,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  dateAverages.sort((a, b) => b.avg - a.avg);
+
+  // Tips
+  const bestDay = dayAverages[0];
+  const worstDay = dayAverages[dayAverages.length - 1];
+  const bestHour = hourAverages[0];
+  const worstHour = hourAverages[hourAverages.length - 1];
+  const bestDate = dateAverages[0];
+  const worstDate = dateAverages[dateAverages.length - 1];
+
+  return (
+    <div style={{
+      background: '#f5f7fa',
+      border: '1px solid #dbeafe',
+      borderRadius: 10,
+      padding: '18px 24px',
+      margin: '24px 0',
+      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
+    }}>
+      <h3 style={{ color: '#1976d2', marginTop: 0 }}>Market Pattern Insights (Last 3000 Periods)</h3>
+      <ul style={{ fontSize: 16, marginBottom: 0 }}>
+        <li>
+          <b>Highest average price day:</b> {bestDay.day} (${bestDay.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDay.day} (${worstDay.avg.toFixed(2)})</span>
+        </li>
+        <li>
+          <b>Hour with highest average price:</b> {bestHour.hour}:00 (${bestHour.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstHour.hour}:00 (${worstHour.avg.toFixed(2)})</span>
+        </li>
+        <li>
+          <b>Date of month with highest average price:</b> {bestDate.date} (${bestDate.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDate.date} (${worstDate.avg.toFixed(2)})</span>
+        </li>
+      </ul>
+      <div style={{ color: '#444', fontSize: 15, marginTop: 10 }}>
+        <b>Tips:</b>
+        <ul style={{ marginTop: 4 }}>
+          <li>Consider monitoring the market on <b>{bestDay.day}</b> and around <b>{bestHour.hour}:00</b> for potential high price opportunities.</li>
+          <li>Historically, prices tend to be lower on <b>{worstDay.day}</b> and at <b>{worstHour.hour}:00</b>.</li>
+          <li>These patterns are based on the last 3000 hourly periods and may change over time. Always do your own research before trading.</li>
+        </ul>
       </div>
     </div>
   );
