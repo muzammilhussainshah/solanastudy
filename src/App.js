@@ -413,6 +413,9 @@ const ClosingPriceTable = () => {
           <p className={`summary-value ${summaryStats.totalChange >= 0 ? 'summary-value-green' : 'summary-value-red'}`}>
             ${summaryStats.totalChange} ({summaryStats.changePercent}%)
           </p>
+          <p style={{ fontSize: 13, color: '#666', margin: 0 }}>
+            Over {filteredData.length} period{filteredData.length !== 1 ? 's' : ''}
+          </p>
         </div>
       </div>
 
