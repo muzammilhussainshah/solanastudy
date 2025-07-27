@@ -30,7 +30,7 @@ const ClosingPriceTable = () => {
           params: {
             symbol: 'SOLUSDT',
             interval: '1h',
-            limit: 1000
+            limit: 744
           }
         });
 
@@ -497,6 +497,9 @@ const ClosingPriceTable = () => {
       <div className="footer-text">
         Total periods: {filteredData.length} | Complete dataset with historical data | Powered by Binance API
       </div>
+
+      {/* Profitable Patterns Analysis - Now at the bottom */}
+      <ProfitablePatterns processedData={processedData} />
     </div>
   );
 };
@@ -517,164 +520,41 @@ const PatternAnalysisTips = ({ processedData }) => {
 
   // 1. Day-of-week analysis
   const byDay = groupBy(processedData, row => row.compactTime.split(",")[0]);
-  const dayAverages = Object.entries(byDay).map(([day, rows]) => {
-    const prices = rows.map(r => parseFloat(r.closingPrice));
-    const changes = rows.map(r => parseFloat(r.change));
-    
-    return {
-      day,
-      count: rows.length,
-      avg: prices.reduce((sum, price) => sum + price, 0) / prices.length,
-      min: Math.min(...prices),
-      max: Math.max(...prices),
-      avgChange: changes.reduce((sum, change) => sum + change, 0) / changes.length,
-      positiveChanges: changes.filter(c => c > 0).length,
-      negativeChanges: changes.filter(c => c < 0).length,
-      percentPositive: (changes.filter(c => c > 0).length / changes.length * 100).toFixed(1)
-    };
-  });
-  
-  // Sort by percentage of positive changes (best trading days)
-  const daysByPositiveChanges = [...dayAverages].sort((a, b) => b.percentPositive - a.percentPositive);
-  // Sort by average price
-  const daysByPrice = [...dayAverages].sort((a, b) => b.avg - a.avg);
+  const dayAverages = Object.entries(byDay).map(([day, rows]) => ({
+    day,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  dayAverages.sort((a, b) => b.avg - a.avg);
 
   // 2. Hour-of-day analysis
   const byHour = groupBy(processedData, row => row.compactTime.split(",")[2].trim().split(":")[0]);
-  const hourAverages = Object.entries(byHour).map(([hour, rows]) => {
-    const prices = rows.map(r => parseFloat(r.closingPrice));
-    const changes = rows.map(r => parseFloat(r.change));
-    
-    return {
-      hour,
-      count: rows.length,
-      avg: prices.reduce((sum, price) => sum + price, 0) / prices.length,
-      min: Math.min(...prices),
-      max: Math.max(...prices),
-      avgChange: changes.reduce((sum, change) => sum + change, 0) / changes.length,
-      positiveChanges: changes.filter(c => c > 0).length,
-      negativeChanges: changes.filter(c => c < 0).length,
-      percentPositive: (changes.filter(c => c > 0).length / changes.length * 100).toFixed(1)
-    };
-  });
-  
-  // Sort by percentage of positive changes
-  const hoursByPositiveChanges = [...hourAverages].sort((a, b) => b.percentPositive - a.percentPositive);
-  // Sort by average price
-  const hoursByPrice = [...hourAverages].sort((a, b) => b.avg - a.avg);
+  const hourAverages = Object.entries(byHour).map(([hour, rows]) => ({
+    hour,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  hourAverages.sort((a, b) => b.avg - a.avg);
 
   // 3. Date-of-month analysis
   const byDate = groupBy(processedData, row => row.compactTime.split(",")[1].trim().split("/")[1]);
-  const dateAverages = Object.entries(byDate).map(([date, rows]) => {
-    const prices = rows.map(r => parseFloat(r.closingPrice));
-    const changes = rows.map(r => parseFloat(r.change));
-    
-    return {
-      date,
-      count: rows.length,
-      avg: prices.reduce((sum, price) => sum + price, 0) / prices.length,
-      min: Math.min(...prices),
-      max: Math.max(...prices),
-      avgChange: changes.reduce((sum, change) => sum + change, 0) / changes.length,
-      positiveChanges: changes.filter(c => c > 0).length,
-      negativeChanges: changes.filter(c => c < 0).length,
-      percentPositive: (changes.filter(c => c > 0).length / changes.length * 100).toFixed(1)
-    };
-  });
-  
-  // Sort by percentage of positive changes
-  const datesByPositiveChanges = [...dateAverages].sort((a, b) => b.percentPositive - a.percentPositive);
-  // Sort by average price
-  const datesByPrice = [...dateAverages].sort((a, b) => b.avg - a.avg);
+  const dateAverages = Object.entries(byDate).map(([date, rows]) => ({
+    date,
+    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
+    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
+    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
+  }));
+  dateAverages.sort((a, b) => b.avg - a.avg);
 
-  // 4. Month analysis
-  const byMonth = groupBy(processedData, row => row.compactTime.split(",")[1].trim().split("/")[0]);
-  const monthAverages = Object.entries(byMonth).map(([month, rows]) => {
-    const prices = rows.map(r => parseFloat(r.closingPrice));
-    const changes = rows.map(r => parseFloat(r.change));
-    
-    return {
-      month,
-      count: rows.length,
-      avg: prices.reduce((sum, price) => sum + price, 0) / prices.length,
-      min: Math.min(...prices),
-      max: Math.max(...prices),
-      avgChange: changes.reduce((sum, change) => sum + change, 0) / changes.length,
-      positiveChanges: changes.filter(c => c > 0).length,
-      negativeChanges: changes.filter(c => c < 0).length,
-      percentPositive: (changes.filter(c => c > 0).length / changes.length * 100).toFixed(1)
-    };
-  });
-  
-  // Sort by percentage of positive changes
-  const monthsByPositiveChanges = [...monthAverages].sort((a, b) => b.percentPositive - a.percentPositive);
-  // Sort by average price
-  const monthsByPrice = [...monthAverages].sort((a, b) => b.avg - a.avg);
-
-  // 5. Day-Hour combination analysis (find best specific time slots)
-  const dayHourCombos = processedData.reduce((acc, row) => {
-    const day = row.compactTime.split(",")[0];
-    const hour = row.compactTime.split(",")[2].trim().split(":")[0];
-    const key = `${day}-${hour}`;
-    
-    if (!acc[key]) {
-      acc[key] = {
-        day,
-        hour,
-        prices: [],
-        changes: []
-      };
-    }
-    
-    acc[key].prices.push(parseFloat(row.closingPrice));
-    acc[key].changes.push(parseFloat(row.change));
-    
-    return acc;
-  }, {});
-  
-  // Calculate statistics for each day-hour combo
-  const dayHourStats = Object.entries(dayHourCombos).map(([combo, data]) => {
-    return {
-      combo,
-      day: data.day,
-      hour: data.hour,
-      count: data.prices.length,
-      avgPrice: data.prices.reduce((sum, price) => sum + price, 0) / data.prices.length,
-      avgChange: data.changes.reduce((sum, change) => sum + change, 0) / data.changes.length,
-      positiveChanges: data.changes.filter(c => c > 0).length,
-      percentPositive: (data.changes.filter(c => c > 0).length / data.changes.length * 100).toFixed(1)
-    };
-  });
-  
-  // Filter to only include combos with enough data points
-  const significantDayHourStats = dayHourStats.filter(stat => stat.count >= 5);
-  
-  // Best day-hour combos for price increases
-  const bestDayHourCombos = significantDayHourStats
-    .sort((a, b) => b.percentPositive - a.percentPositive)
-    .slice(0, 5);
-  
-  // Worst day-hour combos (most likely to see price decreases)
-  const worstDayHourCombos = significantDayHourStats
-    .sort((a, b) => a.percentPositive - b.percentPositive)
-    .slice(0, 5);
-
-  // Get top insights
-  const bestDay = daysByPositiveChanges[0];
-  const worstDay = daysByPositiveChanges[daysByPositiveChanges.length - 1];
-  
-  const bestHour = hoursByPositiveChanges[0];
-  const worstHour = hoursByPositiveChanges[hoursByPositiveChanges.length - 1];
-  
-  const bestDate = datesByPositiveChanges[0];
-  const worstDate = datesByPositiveChanges[datesByPositiveChanges.length - 1];
-  
-  const bestMonth = monthsByPositiveChanges[0];
-  const worstMonth = monthsByPositiveChanges[monthsByPositiveChanges.length - 1];
-
-  // Find price trend patterns
-  const topDayHourCombo = bestDayHourCombos[0];
-  const worstDayHourCombo = worstDayHourCombos[0];
+  // Tips
+  const bestDay = dayAverages[0];
+  const worstDay = dayAverages[dayAverages.length - 1];
+  const bestHour = hourAverages[0];
+  const worstHour = hourAverages[hourAverages.length - 1];
+  const bestDate = dateAverages[0];
+  const worstDate = dateAverages[dateAverages.length - 1];
 
   return (
     <div style={{
@@ -685,76 +565,299 @@ const PatternAnalysisTips = ({ processedData }) => {
       margin: '24px 0',
       boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
     }}>
-      <h3 style={{ color: '#1976d2', marginTop: 0 }}>Market Pattern Insights (Full {processedData.length} Periods Analysis)</h3>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-        <div>
-          <h4 style={{ color: '#1976d2', marginTop: 0 }}>Best Times for Price Increases</h4>
-          <ul style={{ fontSize: 15, marginBottom: 0 }}>
-            <li>
-              <b>Best day of week:</b> {bestDay.day} ({bestDay.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${bestDay.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Best hour:</b> {bestHour.hour}:00 ({bestHour.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${bestHour.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Best date of month:</b> {bestDate.date} ({bestDate.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${bestDate.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Best month:</b> {bestMonth.month} ({bestMonth.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${bestMonth.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Best specific time slot:</b> {topDayHourCombo.day} at {topDayHourCombo.hour}:00<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>{topDayHourCombo.percentPositive}% positive changes (based on {topDayHourCombo.count} samples)</span>
-            </li>
-          </ul>
-        </div>
-        
-        <div>
-          <h4 style={{ color: '#1976d2', marginTop: 0 }}>Times with Price Decreases</h4>
-          <ul style={{ fontSize: 15, marginBottom: 0 }}>
-            <li>
-              <b>Day with most decreases:</b> {worstDay.day} (only {worstDay.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${worstDay.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Hour with most decreases:</b> {worstHour.hour}:00 (only {worstHour.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${worstHour.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Date with most decreases:</b> {worstDate.date} (only {worstDate.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${worstDate.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Month with most decreases:</b> {worstMonth.month} (only {worstMonth.percentPositive}% positive changes)<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Average change: ${worstMonth.avgChange.toFixed(4)}</span>
-            </li>
-            <li>
-              <b>Time slot with most decreases:</b> {worstDayHourCombo.day} at {worstDayHourCombo.hour}:00<br/>
-              <span style={{ color: '#666', fontSize: 13 }}>Only {worstDayHourCombo.percentPositive}% positive changes (based on {worstDayHourCombo.count} samples)</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-      
+      <h3 style={{ color: '#1976d2', marginTop: 0 }}>Market Pattern Insights (Last 3000 Periods)</h3>
+      <ul style={{ fontSize: 16, marginBottom: 0 }}>
+        <li>
+          <b>Highest average price day:</b> {bestDay.day} (${bestDay.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDay.day} (${worstDay.avg.toFixed(2)})</span>
+        </li>
+        <li>
+          <b>Hour with highest average price:</b> {bestHour.hour}:00 (${bestHour.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstHour.hour}:00 (${worstHour.avg.toFixed(2)})</span>
+        </li>
+        <li>
+          <b>Date of month with highest average price:</b> {bestDate.date} (${bestDate.avg.toFixed(2)})<br/>
+          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDate.date} (${worstDate.avg.toFixed(2)})</span>
+        </li>
+      </ul>
       <div style={{ color: '#444', fontSize: 15, marginTop: 10 }}>
-        <h4 style={{ color: '#1976d2', marginTop: 0 }}>Trading Strategy Insights</h4>
+        <b>Tips:</b>
         <ul style={{ marginTop: 4 }}>
-          <li><b>Best buying opportunity:</b> Consider buying on {worstDay.day} around {worstHour.hour}:00 when prices historically tend to be lower.</li>
-          <li><b>Best selling opportunity:</b> Consider selling on {bestDay.day} around {bestHour.hour}:00 when prices historically tend to increase.</li>
-          <li><b>Monthly pattern:</b> Month {bestMonth.month} shows the strongest positive trend with {bestMonth.percentPositive}% of price changes being positive.</li>
-          <li><b>Date pattern:</b> Transactions on date {bestDate.date} of the month have shown {bestDate.percentPositive}% positive price movements.</li>
-          <li><b>Optimal time window:</b> The specific combination of {topDayHourCombo.day} at {topDayHourCombo.hour}:00 has shown the strongest positive trend.</li>
-          <li><b>Avoid:</b> {worstDayHourCombo.day} at {worstDayHourCombo.hour}:00 has historically shown the highest likelihood of price decreases.</li>
+          <li>Consider monitoring the market on <b>{bestDay.day}</b> and around <b>{bestHour.hour}:00</b> for potential high price opportunities.</li>
+          <li>Historically, prices tend to be lower on <b>{worstDay.day}</b> and at <b>{worstHour.hour}:00</b>.</li>
+          <li>These patterns are based on the last 3000 hourly periods and may change over time. Always do your own research before trading.</li>
         </ul>
-        <p style={{ fontSize: 13, color: '#666', fontStyle: 'italic', marginTop: 15 }}>
-          Analysis based on {processedData.length} hourly periods. Past performance does not guarantee future results. Always conduct your own research before trading.
-        </p>
       </div>
+    </div>
+  );
+};
+
+// ProfitablePatterns: Analyzes trading data to find most profitable day-hour combinations
+const ProfitablePatterns = ({ processedData }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [patterns, setPatterns] = useState([]);
+
+  // Function to get day and hour from a data point
+  const getDayHour = (dataPoint) => {
+    const [day, date, time] = dataPoint.compactTime.split(", ");
+    const hour = time.split(":")[0];
+    return { day, hour };
+  };
+
+  // Function to find profitable patterns
+  const findProfitablePatterns = async () => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const patterns = [];
+    
+    // Process in chunks to prevent UI freeze
+    const chunkSize = 24; // Process one day at a time
+    
+    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
+      for (let buyHour = 0; buyHour < 24; buyHour += chunkSize) {
+        // Allow UI to update between chunks
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        for (let h = buyHour; h < Math.min(buyHour + chunkSize, 24); h++) {
+          for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
+            for (let sellHour = 0; sellHour < 24; sellHour++) {
+              if (buyDayIndex === sellDayIndex && sellHour <= h) continue;
+              
+              let profitCount = 0;
+              let totalProfit = 0;
+              let instances = [];
+
+              for (let i = 0; i < processedData?.length - 1; i++) {
+                const buyPoint = getDayHour(processedData[i]);
+                if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === h.toString().padStart(2, '0')) {
+                  for (let j = i + 1; j < processedData.length; j++) {
+                    const sellPoint = getDayHour(processedData[j]);
+                    if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
+                      const buyPrice = parseFloat(processedData[i].closingPrice);
+                      const sellPrice = parseFloat(processedData[j].closingPrice);
+                      const profit = sellPrice - buyPrice;
+                      
+                      if (profit > 0) {
+                        profitCount++;
+                        totalProfit += profit;
+                        instances.push({
+                          buyDate: processedData[i].compactTime,
+                          sellDate: processedData[j].compactTime,
+                          buyPrice: buyPrice.toFixed(2),
+                          sellPrice: sellPrice.toFixed(2),
+                          profit: profit.toFixed(2)
+                        });
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (profitCount >= 3) {
+                patterns.push({
+                  buyDay: days[buyDayIndex],
+                  buyHour: h.toString().padStart(2, '0'),
+                  sellDay: days[sellDayIndex],
+                  sellHour: sellHour.toString().padStart(2, '0'),
+                  profitCount,
+                  averageProfit: (totalProfit / profitCount).toFixed(2),
+                  instances
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Sort and get top 5
+    return patterns
+      .sort((a, b) => {
+        if (b.profitCount !== a.profitCount) {
+          return b.profitCount - a.profitCount;
+        }
+        return parseFloat(b.averageProfit) - parseFloat(a.averageProfit);
+      })
+      .slice(0, 5);
+  };
+
+  // Effect to calculate patterns when visible
+  useEffect(() => {
+    let isMounted = true;
+
+    const calculatePatterns = async () => {
+      if (!isVisible || patterns.length > 0 || !processedData || processedData.length === 0) return;
+      
+      setIsLoading(true);
+      try {
+        const newPatterns = await findProfitablePatterns();
+        if (isMounted) {
+          setPatterns(newPatterns);
+        }
+      } catch (error) {
+        console.error('Error calculating patterns:', error);
+      }
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    };
+
+    calculatePatterns();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isVisible, processedData, patterns.length]);
+
+  if (!processedData || processedData.length === 0) {
+    return null;
+  }
+
+  return (
+    <div style={{
+      background: '#f0f7ff',
+      border: '1px solid #bfdeff',
+      borderRadius: 10,
+      padding: '18px 24px',
+      margin: '24px 0',
+      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: isVisible ? 20 : 0
+      }}>
+        <h3 style={{ color: '#1565c0', margin: 0 }}>Top 5 Most Profitable Trading Patterns</h3>
+        <button
+          onClick={() => {
+            setIsVisible(!isVisible);
+            if (!isVisible) {
+              setPatterns([]); // Reset patterns when showing again
+            }
+          }}
+          style={{
+            padding: '8px 16px',
+            background: isVisible ? '#e0e0e0' : '#1976d2',
+            color: isVisible ? '#333' : 'white',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {isVisible ? 'Hide Patterns' : 'Show Patterns'}
+        </button>
+      </div>
+
+      {isVisible && (
+        <>
+          {isLoading ? (
+            <div style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              fontSize: 16,
+              color: '#1976d2',
+              background: 'white',
+              borderRadius: 8,
+              margin: '20px 0'
+            }}>
+              <div className="loading-spinner" style={{
+                border: '4px solid #f3f3f3',
+                borderTop: '4px solid #1976d2',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 15px'
+              }} />
+              Analyzing trading patterns...
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          ) : (
+            <>
+              {patterns.map((pattern, index) => (
+                <div key={index} style={{ 
+                  marginBottom: 20,
+                  padding: 15,
+                  background: 'white',
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  border: '1px solid #e3f2fd'
+                }}>
+                  <div style={{ 
+                    fontSize: 18, 
+                    fontWeight: 'bold', 
+                    color: '#1976d2',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>#{index + 1}: Buy {pattern.buyDay} {pattern.buyHour}:00 → Sell {pattern.sellDay} {pattern.sellHour}:00</span>
+                    <span style={{ 
+                      backgroundColor: '#e8f5e9', 
+                      color: '#2e7d32',
+                      padding: '4px 8px',
+                      borderRadius: 4,
+                      fontSize: 14
+                    }}>
+                      {pattern.profitCount} times profitable
+                    </span>
+                  </div>
+                  <div style={{ 
+                    color: '#2e7d32', 
+                    marginTop: 8,
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                  }}>
+                    Average profit per trade: ${pattern.averageProfit}
+                  </div>
+                  <div style={{ 
+                    marginTop: 12, 
+                    fontSize: 14,
+                    backgroundColor: '#fafafa',
+                    padding: 10,
+                    borderRadius: 6
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#333' }}>Recent Successful Trades:</div>
+                    {pattern.instances.slice(-3).map((instance, i) => (
+                      <div key={i} style={{ 
+                        color: '#555', 
+                        marginBottom: 6,
+                        padding: '4px 0',
+                        borderBottom: i < 2 ? '1px solid #eee' : 'none'
+                      }}>
+                        Buy: ${instance.buyPrice} ({instance.buyDate}) → 
+                        Sell: ${instance.sellPrice} ({instance.sellDate}) = 
+                        <span style={{ color: '#2e7d32', fontWeight: 'bold' }}> +${instance.profit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              
+              <div style={{ 
+                color: '#666', 
+                fontSize: 14, 
+                marginTop: 15,
+                padding: '10px 15px',
+                background: '#fff',
+                borderRadius: 6,
+                border: '1px solid #e0e0e0'
+              }}>
+                <strong>Note:</strong> These patterns are based on {processedData.length} periods of historical data. 
+                Past performance does not guarantee future results. Use this information as one of many factors in your trading decisions.
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 };
