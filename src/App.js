@@ -30,7 +30,7 @@ const ClosingPriceTable = () => {
           params: {
             symbol: 'SOLUSDT',
             interval: '1h',
-            limit: 744
+            limit: 1000
           }
         });
 
