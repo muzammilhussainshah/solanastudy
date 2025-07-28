@@ -300,6 +300,18 @@ const ClosingPriceTable = () => {
           >
             <option value="SOLUSDT">Solana (SOL)</option>
             <option value="ETHUSDT">Ethereum (ETH)</option>
+            <option value="XRPUSDT">XRP (XRP)</option>
+            <option value="BTCUSDT">Bitcoin (BTC)</option>
+            <option value="OPUSDT">Optimism (OP)</option>
+            <option value="DOGEUSDT">Dogecoin (DOGE)</option>
+            <option value="LINKUSDT">Chainlink (LINK)</option>
+            <option value="ATOMUSDT">Cosmos (ATOM)</option>
+            <option value="ADAUSDT">Cardano (ADA)</option>
+            <option value="SUIUSDT">Sui (SUI)</option>
+            <option value="SHIBUSDT">Shiba Inu (SHIB)</option>
+            <option value="INJUSDT">Injective (INJ)</option>
+            <option value="GRTUSDT">The Graph (GRT)</option>
+            <option value="FLOKIUSDT">Floki (FLOKI)</option>
           </select>
         </div>
 
@@ -567,7 +579,21 @@ const ClosingPriceTable = () => {
       </div>
       
       <h2 className="trading-title">
-        {selectedCoin === 'SOLUSDT' ? 'Solana (SOL/USDT)' : 'Ethereum (ETH/USDT)'} Trading Data - {filteredData.length} Periods
+        {selectedCoin === 'SOLUSDT' ? 'Solana (SOL/USDT)' : 
+         selectedCoin === 'ETHUSDT' ? 'Ethereum (ETH/USDT)' :
+         selectedCoin === 'XRPUSDT' ? 'XRP (XRP/USDT)' :
+         selectedCoin === 'BTCUSDT' ? 'Bitcoin (BTC/USDT)' :
+         selectedCoin === 'OPUSDT' ? 'Optimism (OP/USDT)' :
+         selectedCoin === 'DOGEUSDT' ? 'Dogecoin (DOGE/USDT)' :
+         selectedCoin === 'LINKUSDT' ? 'Chainlink (LINK/USDT)' :
+         selectedCoin === 'ATOMUSDT' ? 'Cosmos (ATOM/USDT)' :
+         selectedCoin === 'ADAUSDT' ? 'Cardano (ADA/USDT)' :
+         selectedCoin === 'SUIUSDT' ? 'Sui (SUI/USDT)' :
+         selectedCoin === 'SHIBUSDT' ? 'Shiba Inu (SHIB/USDT)' :
+         selectedCoin === 'INJUSDT' ? 'Injective (INJ/USDT)' :
+         selectedCoin === 'GRTUSDT' ? 'The Graph (GRT/USDT)' :
+         selectedCoin === 'FLOKIUSDT' ? 'Floki (FLOKI/USDT)' :
+         `${selectedCoin.replace('USDT', '')} (${selectedCoin.replace('USDT', '')}/USDT)`} Trading Data - {filteredData.length} Periods
       </h2>
 
       {/* Summary Cards */}
