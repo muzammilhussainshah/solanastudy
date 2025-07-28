@@ -302,6 +302,7 @@ const ClosingPriceTable = () => {
             <option value="ETHUSDT">Ethereum (ETH)</option>
             <option value="XRPUSDT">XRP (XRP)</option>
             <option value="BTCUSDT">Bitcoin (BTC)</option>
+            <option value="BNBUSDT">Binance Coin (BNB)</option>
             <option value="OPUSDT">Optimism (OP)</option>
             <option value="DOGEUSDT">Dogecoin (DOGE)</option>
             <option value="LINKUSDT">Chainlink (LINK)</option>
@@ -583,6 +584,7 @@ const ClosingPriceTable = () => {
          selectedCoin === 'ETHUSDT' ? 'Ethereum (ETH/USDT)' :
          selectedCoin === 'XRPUSDT' ? 'XRP (XRP/USDT)' :
          selectedCoin === 'BTCUSDT' ? 'Bitcoin (BTC/USDT)' :
+         selectedCoin === 'BNBUSDT' ? 'Binance Coin (BNB/USDT)' :
          selectedCoin === 'OPUSDT' ? 'Optimism (OP/USDT)' :
          selectedCoin === 'DOGEUSDT' ? 'Dogecoin (DOGE/USDT)' :
          selectedCoin === 'LINKUSDT' ? 'Chainlink (LINK/USDT)' :
