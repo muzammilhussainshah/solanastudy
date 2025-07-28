@@ -320,6 +320,9 @@ const ClosingPriceTable = () => {
             <option value="GRTUSDT">The Graph (GRT)</option>
             <option value="FLOKIUSDT">Floki (FLOKI)</option>
             <option value="HBARUSDT">Hedera (HBAR)</option>
+            <option value="UNIUSDT">Uniswap (UNI)</option>
+            <option value="DOTUSDT">Polkadot (DOT)</option>
+            <option value="TONUSDT">Toncoin (TON)</option>
           </select>
         </div>
 
@@ -609,6 +612,9 @@ const ClosingPriceTable = () => {
          selectedCoin === 'GRTUSDT' ? 'The Graph (GRT/USDT)' :
          selectedCoin === 'FLOKIUSDT' ? 'Floki (FLOKI/USDT)' :
          selectedCoin === 'HBARUSDT' ? 'Hedera (HBAR/USDT)' :
+         selectedCoin === 'UNIUSDT' ? 'Uniswap (UNI/USDT)' :
+         selectedCoin === 'DOTUSDT' ? 'Polkadot (DOT/USDT)' :
+         selectedCoin === 'TONUSDT' ? 'Toncoin (TON/USDT)' :
          `${selectedCoin.replace('USDT', '')} (${selectedCoin.replace('USDT', '')}/USDT)`} Trading Data - {filteredData.length} Periods
       </h2>
 
