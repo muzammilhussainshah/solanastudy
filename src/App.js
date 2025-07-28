@@ -9,6 +9,7 @@ const ClosingPriceTable = () => {
   const [loadingProgress, setLoadingProgress] = useState(0); // Track progress
   const [error, setError] = useState(null);
   const [selectedMonths, setSelectedMonths] = useState(1); // Default to 1 month
+  const [selectedCoin, setSelectedCoin] = useState('SOLUSDT'); // Default to Solana
   const [summaryStats, setSummaryStats] = useState({
     highestPrice: 0,
     lowestPrice: 0,
@@ -49,7 +50,7 @@ const ClosingPriceTable = () => {
 
         while (allData.length < totalNeeded) {
           const params = {
-            symbol: 'SOLUSDT',
+            symbol: selectedCoin,
             interval: '1h',
             limit: maxLimit,
           };
@@ -100,7 +101,7 @@ const ClosingPriceTable = () => {
     };
 
     fetchData();
-  }, [selectedMonths]); // Add selectedMonths to dependency array
+  }, [selectedMonths, selectedCoin]); // Add selectedMonths and selectedCoin to dependency array
 
   // Process data in chunks to prevent UI freezing
   const processDataInChunks = async (data) => {
@@ -262,42 +263,77 @@ const ClosingPriceTable = () => {
 
   return (
     <div className="trading-container">
-      {/* Month Selector Dropdown */}
+      {/* Coin and Month Selector Dropdowns */}
       <div style={{ 
         marginBottom: "20px", 
         padding: "15px",
         background: "#f5f7fa",
         borderRadius: "8px",
-        border: "1px solid #dbeafe"
+        border: "1px solid #dbeafe",
+        display: "flex",
+        gap: "20px",
+        alignItems: "center",
+        flexWrap: "wrap"
       }}>
-        <label style={{ 
-          fontWeight: "bold", 
-          marginRight: "10px",
-          color: "#1976d2"
-        }}>
-          Select Data Range:
-        </label>
-        <select
-          value={selectedMonths}
-          onChange={(e) => {
-            setSelectedMonths(Number(e.target.value));
-            setLoading(true); // Trigger reload when months change
-          }}
-          style={{
-            padding: "8px 12px",
-            borderRadius: "6px",
-            border: "1px solid #bfdeff",
-            backgroundColor: "white",
-            fontSize: "14px",
-            cursor: "pointer"
-          }}
-        >
-          {[1,2,3,6,12,24,36,48,60].map(months => (
-            <option key={months} value={months}>
-              {months === 1 ? '1 Month' : `${months} Months`}
-            </option>
-          ))}
-        </select>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <label style={{ 
+            fontWeight: "bold", 
+            marginRight: "10px",
+            color: "#1976d2"
+          }}>
+            Select Coin:
+          </label>
+          <select
+            value={selectedCoin}
+            onChange={(e) => {
+              setSelectedCoin(e.target.value);
+              setLoading(true); // Trigger reload when coin changes
+            }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #bfdeff",
+              backgroundColor: "white",
+              fontSize: "14px",
+              cursor: "pointer"
+            }}
+          >
+            <option value="SOLUSDT">Solana (SOL)</option>
+            <option value="ETHUSDT">Ethereum (ETH)</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <label style={{ 
+            fontWeight: "bold", 
+            marginRight: "10px",
+            color: "#1976d2"
+          }}>
+            Select Data Range:
+          </label>
+          <select
+            value={selectedMonths}
+            onChange={(e) => {
+              setSelectedMonths(Number(e.target.value));
+              setLoading(true); // Trigger reload when months change
+            }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #bfdeff",
+              backgroundColor: "white",
+              fontSize: "14px",
+              cursor: "pointer"
+            }}
+          >
+            {[1,2,3,6,12,24,36,48,60].map(months => (
+              <option key={months} value={months}>
+                {months === 1 ? '1 Month' : `${months} Months`}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {loading && (
           <span style={{ 
             marginLeft: "10px",
@@ -530,7 +566,9 @@ const ClosingPriceTable = () => {
         </table>
       </div>
       
-      <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {filteredData.length} Periods</h2>
+      <h2 className="trading-title">
+        {selectedCoin === 'SOLUSDT' ? 'Solana (SOL/USDT)' : 'Ethereum (ETH/USDT)'} Trading Data - {filteredData.length} Periods
+      </h2>
 
       {/* Summary Cards */}
       <div className="summary-grid">
