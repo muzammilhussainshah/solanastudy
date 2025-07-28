@@ -6,6 +6,7 @@ const ClosingPriceTable = () => {
   const [processedData, setProcessedData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState(1); // Default to 1 month
   const [summaryStats, setSummaryStats] = useState({
     highestPrice: 0,
     lowestPrice: 0,
@@ -25,89 +26,37 @@ const ClosingPriceTable = () => {
       try {
         setLoading(true);
         
-        // First API call to get most recent data
-        const recentDataResponse = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
+        let allData = [];
+        let endTime = undefined;
+        const hoursPerMonth = 730; // Average hours in a month (30.42 days)
+        const totalNeeded = selectedMonths * hoursPerMonth; // Calculate needed hours based on selected months
+        const maxLimit = 1000;
+
+        while (allData.length < totalNeeded) {
+          const params = {
             symbol: 'SOLUSDT',
             interval: '1h',
-            limit: 1000
+            limit: maxLimit,
+          };
+          
+          if (endTime) {
+            params.endTime = endTime;
           }
-        });
 
-        // Get the oldest timestamp from the first batch
-        const oldestTimestamp1 = recentDataResponse.data[0][0];
-        
-        // Second API call to get older data
-        const olderDataResponse1 = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
-            symbol: 'SOLUSDT',
-            interval: '1h',
-            limit: 1000,
-            endTime: oldestTimestamp1 - 1 // Use the timestamp right before our oldest data
-          }
-        });
+          const response = await axios.get('https://api.binance.com/api/v3/klines', { params });
+          const data = response.data;
 
-        // Get the oldest timestamp from the second batch
-        const oldestTimestamp2 = olderDataResponse1.data[0][0];
+          if (!data.length) break; // No more data available
 
-        // Third API call to get even older data
-        const olderDataResponse2 = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
-            symbol: 'SOLUSDT',
-            interval: '1h',
-            limit: 1000,
-            endTime: oldestTimestamp2 - 1
-          }
-        });
+          allData = [...data, ...allData]; // Prepend to keep chronological order
+          endTime = data[0][0] - 1; // Move endTime back for next request
 
-        // Get the oldest timestamp from the third batch
-        const oldestTimestamp3 = olderDataResponse2.data[0][0];
+          // Add a small delay to avoid rate limits
+          await new Promise(res => setTimeout(res, 100));
+        }
 
-        // Fourth API call
-        const olderDataResponse3 = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
-            symbol: 'SOLUSDT',
-            interval: '1h',
-            limit: 1000,
-            endTime: oldestTimestamp3 - 1
-          }
-        });
-
-        // Get the oldest timestamp from the fourth batch
-        const oldestTimestamp4 = olderDataResponse3.data[0][0];
-
-        // Fifth API call
-        const olderDataResponse4 = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
-            symbol: 'SOLUSDT',
-            interval: '1h',
-            limit: 1000,
-            endTime: oldestTimestamp4 - 1
-          }
-        });
-
-        // Get the oldest timestamp from the fifth batch
-        const oldestTimestamp5 = olderDataResponse4.data[0][0];
-
-        // Sixth API call
-        const olderDataResponse5 = await axios.get('https://api.binance.com/api/v3/klines', {
-          params: {
-            symbol: 'SOLUSDT',
-            interval: '1h',
-            limit: 1000,
-            endTime: oldestTimestamp5 - 1
-          }
-        });
-
-        // Combine all datasets (oldest first)
-        const combinedData = [
-          ...olderDataResponse5.data,
-          ...olderDataResponse4.data,
-          ...olderDataResponse3.data,
-          ...olderDataResponse2.data,
-          ...olderDataResponse1.data,
-          ...recentDataResponse.data
-        ];
+        // Only keep the most recent totalNeeded rows
+        const combinedData = allData.slice(-totalNeeded);
 
         // Process data to show closing price with time
         const processed = combinedData.map((row, index) => {
@@ -120,7 +69,8 @@ const ClosingPriceTable = () => {
           const timeString = date.toLocaleString('en-US', {
             weekday: 'short', // Add day of week
             month: '2-digit',
-            day: '2-digit', 
+            day: '2-digit',
+            year: '2-digit', // Added year
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
@@ -129,8 +79,9 @@ const ClosingPriceTable = () => {
           // Create a more compact time format for the small table
           const weekday = date.toLocaleString('en-US', { weekday: 'short' });
           const monthDay = date.toLocaleString('en-US', { month: '2-digit', day: '2-digit' });
+          const year = date.toLocaleString('en-US', { year: '2-digit' });
           const hourMinute = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-          const compactTimeString = `${weekday}, ${monthDay}, ${hourMinute}`;
+          const compactTimeString = `${weekday}, ${monthDay}/${year}, ${hourMinute}`;
 
           return {
             period: index + 1,
@@ -181,7 +132,7 @@ const ClosingPriceTable = () => {
     };
 
     fetchData();
-  }, []);
+  }, [selectedMonths]); // Add selectedMonths to dependency array
 
   if (loading) {
     return <div className="loading-container">Loading Solana trading data...</div>;
@@ -213,6 +164,53 @@ const ClosingPriceTable = () => {
 
   return (
     <div className="trading-container">
+      {/* Month Selector Dropdown */}
+      <div style={{ 
+        marginBottom: "20px", 
+        padding: "15px",
+        background: "#f5f7fa",
+        borderRadius: "8px",
+        border: "1px solid #dbeafe"
+      }}>
+        <label style={{ 
+          fontWeight: "bold", 
+          marginRight: "10px",
+          color: "#1976d2"
+        }}>
+          Select Data Range:
+        </label>
+        <select
+          value={selectedMonths}
+          onChange={(e) => {
+            setSelectedMonths(Number(e.target.value));
+            setLoading(true); // Trigger reload when months change
+          }}
+          style={{
+            padding: "8px 12px",
+            borderRadius: "6px",
+            border: "1px solid #bfdeff",
+            backgroundColor: "white",
+            fontSize: "14px",
+            cursor: "pointer"
+          }}
+        >
+          {[1,2,3,6,12,24,36,48,60].map(months => (
+            <option key={months} value={months}>
+              {months === 1 ? '1 Month' : `${months} Months`}
+            </option>
+          ))}
+        </select>
+        {loading && (
+          <span style={{ 
+            marginLeft: "10px",
+            color: "#666",
+            fontSize: "14px"
+          }}>
+            Loading data...
+          </span>
+        )}
+      </div>
+
       {/* Filter Mode Toggle */}
       <div style={{ marginBottom: "12px" }}>
         <label>
