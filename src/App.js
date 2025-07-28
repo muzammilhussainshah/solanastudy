@@ -5,6 +5,8 @@ import './App.css';
 const ClosingPriceTable = () => {
   const [processedData, setProcessedData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPhase, setLoadingPhase] = useState(''); // Track loading phases
+  const [loadingProgress, setLoadingProgress] = useState(0); // Track progress
   const [error, setError] = useState(null);
   const [selectedMonths, setSelectedMonths] = useState(1); // Default to 1 month
   const [summaryStats, setSummaryStats] = useState({
@@ -25,12 +27,15 @@ const ClosingPriceTable = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setLoadingPhase('Fetching data from Binance...');
+        setLoadingProgress(0);
         
         let allData = [];
         let endTime = undefined;
         const hoursPerMonth = 730; // Average hours in a month (30.42 days)
         const totalNeeded = selectedMonths * hoursPerMonth; // Calculate needed hours based on selected months
         const maxLimit = 1000;
+        let fetchedCount = 0;
 
         while (allData.length < totalNeeded) {
           const params = {
@@ -51,91 +56,174 @@ const ClosingPriceTable = () => {
           allData = [...data, ...allData]; // Prepend to keep chronological order
           endTime = data[0][0] - 1; // Move endTime back for next request
 
-          // Add a small delay to avoid rate limits
-          await new Promise(res => setTimeout(res, 100));
+          fetchedCount += data.length;
+          const progress = Math.min((fetchedCount / totalNeeded) * 100, 100);
+          setLoadingProgress(Math.round(progress));
+
+          // Larger delay for rate limiting
+          await new Promise(res => setTimeout(res, 300));
         }
 
-        // Only keep the most recent totalNeeded rows
+        setLoadingPhase('Processing data...');
+        await new Promise(res => setTimeout(res, 100)); // Allow UI to update
+
         const combinedData = allData.slice(-totalNeeded);
-
-        // Process data to show closing price with time
-        const processed = combinedData.map((row, index) => {
-          const timestamp = row[0];
-          const closingPrice = parseFloat(row[4]);
-          const volume = parseFloat(row[5]);
-          
-          // Convert timestamp to readable time
-          const date = new Date(timestamp);
-          const timeString = date.toLocaleString('en-US', {
-            weekday: 'short', // Add day of week
-            month: '2-digit',
-            day: '2-digit',
-            year: '2-digit', // Added year
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          });
-          
-          // Create a more compact time format for the small table
-          const weekday = date.toLocaleString('en-US', { weekday: 'short' });
-          const monthDay = date.toLocaleString('en-US', { month: '2-digit', day: '2-digit' });
-          const year = date.toLocaleString('en-US', { year: '2-digit' });
-          const hourMinute = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-          const compactTimeString = `${weekday}, ${monthDay}/${year}, ${hourMinute}`;
-
-          return {
-            period: index + 1,
-            time: timeString,
-            compactTime: compactTimeString,
-            closingPrice: closingPrice.toFixed(2),
-            volume: volume.toLocaleString(),
-            change: index > 0 ? (closingPrice - parseFloat(combinedData[index-1][4])).toFixed(2) : '0.00',
-            timestamp: timestamp // Store timestamp for sorting
-          };
-        });
-
-        // Sort by timestamp to ensure chronological order
-        const sortedData = processed.sort((a, b) => a.timestamp - b.timestamp);
         
-        // Update period numbers after sorting
-        const finalProcessedData = sortedData.map((item, index) => ({
-          ...item,
-          period: index + 1
-        }));
+        setLoadingPhase('Calculating time periods...');
+        const processed = await processDataInChunks(combinedData);
+        setProcessedData(processed);
 
-        setProcessedData(finalProcessedData);
-
-        // Calculate summary stats
-        const prices = finalProcessedData.map(d => parseFloat(d.closingPrice));
-        const highestPrice = Math.max(...prices);
-        const lowestPrice = Math.min(...prices);
-        const firstPrice = prices[0];
-        const lastPrice = prices[prices.length - 1];
-        const totalChange = (lastPrice - firstPrice).toFixed(2);
-        const changePercent = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(2);
-
-        setSummaryStats({
-          highestPrice,
-          lowestPrice,
-          firstPrice,
-          lastPrice,
-          totalChange,
-          changePercent
-        });
+        // Calculate summary stats in chunks
+        setLoadingPhase('Calculating statistics...');
+        await calculateSummaryStats(processed);
 
         setLoading(false);
+        setLoadingPhase('');
+        setLoadingProgress(0);
       } catch (err) {
         console.error("Error fetching data:", err);
-        setError("Failed to fetch data from Binance API. Please try again later.");
+        setError("Failed to fetch data. Please try again later.");
         setLoading(false);
+        setLoadingPhase('');
+        setLoadingProgress(0);
       }
     };
 
     fetchData();
   }, [selectedMonths]); // Add selectedMonths to dependency array
 
+  // Process data in chunks to prevent UI freezing
+  const processDataInChunks = async (data) => {
+    const chunkSize = 1000;
+    const chunks = [];
+    
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      chunks.push(chunk);
+    }
+
+    let processed = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const processedChunk = chunk.map((row, index) => {
+        const timestamp = row[0];
+        const closingPrice = parseFloat(row[4]);
+        const volume = parseFloat(row[5]);
+        
+        const date = new Date(timestamp);
+        const timeString = date.toLocaleString('en-US', {
+          weekday: 'short',
+          month: '2-digit',
+          day: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        
+        const weekday = date.toLocaleString('en-US', { weekday: 'short' });
+        const monthDay = date.toLocaleString('en-US', { month: '2-digit', day: '2-digit' });
+        const year = date.toLocaleString('en-US', { year: '2-digit' });
+        const hourMinute = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const compactTimeString = `${weekday}, ${monthDay}/${year}, ${hourMinute}`;
+
+        return {
+          period: (i * chunkSize) + index + 1,
+          time: timeString,
+          compactTime: compactTimeString,
+          closingPrice: closingPrice.toFixed(2),
+          volume: volume.toLocaleString(),
+          change: index > 0 ? (closingPrice - parseFloat(chunk[index-1][4])).toFixed(2) : '0.00',
+          timestamp: timestamp
+        };
+      });
+
+      processed = [...processed, ...processedChunk];
+      setLoadingProgress(Math.round((i + 1) / chunks.length * 100));
+      await new Promise(res => setTimeout(res, 0)); // Let UI breathe
+    }
+
+    return processed;
+  };
+
+  // Calculate summary stats in chunks
+  const calculateSummaryStats = async (data) => {
+    const prices = data.map(d => parseFloat(d.closingPrice));
+    const highestPrice = Math.max(...prices);
+    const lowestPrice = Math.min(...prices);
+    const firstPrice = prices[0];
+    const lastPrice = prices[prices.length - 1];
+    const totalChange = (lastPrice - firstPrice).toFixed(2);
+    const changePercent = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(2);
+
+    setSummaryStats({
+      highestPrice,
+      lowestPrice,
+      firstPrice,
+      lastPrice,
+      totalChange,
+      changePercent
+    });
+  };
+
   if (loading) {
-    return <div className="loading-container">Loading Solana trading data...</div>;
+    return (
+      <div className="loading-container" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px',
+        background: '#f5f7fa',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        margin: '20px'
+      }}>
+        <div style={{
+          width: '50px',
+          height: '50px',
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #1976d2',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '20px'
+        }} />
+        <div style={{
+          fontSize: '18px',
+          color: '#1976d2',
+          marginBottom: '10px',
+          fontWeight: 'bold'
+        }}>
+          {loadingPhase}
+        </div>
+        <div style={{
+          width: '300px',
+          height: '8px',
+          background: '#e0e0e0',
+          borderRadius: '4px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${loadingProgress}%`,
+            height: '100%',
+            background: '#1976d2',
+            transition: 'width 0.3s ease'
+          }} />
+        </div>
+        <div style={{
+          marginTop: '10px',
+          color: '#666'
+        }}>
+          {loadingProgress}% Complete
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
   }
 
   if (error) {
@@ -595,6 +683,8 @@ const ProfitablePatterns = ({ processedData }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [patterns, setPatterns] = useState([]);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [currentOperation, setCurrentOperation] = useState('');
 
   // Function to get day and hour from a data point
   const getDayHour = (dataPoint) => {
@@ -603,74 +693,87 @@ const ProfitablePatterns = ({ processedData }) => {
     return { day, hour };
   };
 
-  // Function to find profitable patterns
-  const findProfitablePatterns = async () => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const patterns = [];
-    
-    // Process in chunks to prevent UI freeze
-    const chunkSize = 24; // Process one day at a time
-    
-    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
-      for (let buyHour = 0; buyHour < 24; buyHour += chunkSize) {
-        // Allow UI to update between chunks
-        await new Promise(resolve => setTimeout(resolve, 0));
+  // Process a single day-hour combination
+  const processDayHourCombo = async (buyDayIndex, buyHour, days) => {
+    const results = [];
+    for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
+      for (let sellHour = 0; sellHour < 24; sellHour++) {
+        if (buyDayIndex === sellDayIndex && sellHour <= buyHour) continue;
         
-        for (let h = buyHour; h < Math.min(buyHour + chunkSize, 24); h++) {
-          for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
-            for (let sellHour = 0; sellHour < 24; sellHour++) {
-              if (buyDayIndex === sellDayIndex && sellHour <= h) continue;
-              
-              let profitCount = 0;
-              let totalProfit = 0;
-              let instances = [];
+        let profitCount = 0;
+        let totalProfit = 0;
+        let instances = [];
 
-              for (let i = 0; i < processedData?.length - 1; i++) {
-                const buyPoint = getDayHour(processedData[i]);
-                if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === h.toString().padStart(2, '0')) {
-                  for (let j = i + 1; j < processedData.length; j++) {
-                    const sellPoint = getDayHour(processedData[j]);
-                    if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
-                      const buyPrice = parseFloat(processedData[i].closingPrice);
-                      const sellPrice = parseFloat(processedData[j].closingPrice);
-                      const profit = sellPrice - buyPrice;
-                      
-                      if (profit > 0) {
-                        profitCount++;
-                        totalProfit += profit;
-                        instances.push({
-                          buyDate: processedData[i].compactTime,
-                          sellDate: processedData[j].compactTime,
-                          buyPrice: buyPrice.toFixed(2),
-                          sellPrice: sellPrice.toFixed(2),
-                          profit: profit.toFixed(2)
-                        });
-                      }
-                      break;
-                    }
-                  }
+        for (let i = 0; i < processedData.length - 1; i++) {
+          const buyPoint = getDayHour(processedData[i]);
+          if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === buyHour.toString().padStart(2, '0')) {
+            for (let j = i + 1; j < processedData.length; j++) {
+              const sellPoint = getDayHour(processedData[j]);
+              if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
+                const buyPrice = parseFloat(processedData[i].closingPrice);
+                const sellPrice = parseFloat(processedData[j].closingPrice);
+                const profit = sellPrice - buyPrice;
+                
+                if (profit > 0) {
+                  profitCount++;
+                  totalProfit += profit;
+                  instances.push({
+                    buyDate: processedData[i].compactTime,
+                    sellDate: processedData[j].compactTime,
+                    buyPrice: buyPrice.toFixed(2),
+                    sellPrice: sellPrice.toFixed(2),
+                    profit: profit.toFixed(2)
+                  });
                 }
-              }
-
-              if (profitCount >= 3) {
-                patterns.push({
-                  buyDay: days[buyDayIndex],
-                  buyHour: h.toString().padStart(2, '0'),
-                  sellDay: days[sellDayIndex],
-                  sellHour: sellHour.toString().padStart(2, '0'),
-                  profitCount,
-                  averageProfit: (totalProfit / profitCount).toFixed(2),
-                  instances
-                });
+                break;
               }
             }
           }
         }
+
+        if (profitCount >= 3) {
+          results.push({
+            buyDay: days[buyDayIndex],
+            buyHour: buyHour.toString().padStart(2, '0'),
+            sellDay: days[sellDayIndex],
+            sellHour: sellHour.toString().padStart(2, '0'),
+            profitCount,
+            averageProfit: (totalProfit / profitCount).toFixed(2),
+            instances
+          });
+        }
+      }
+    }
+    return results;
+  };
+
+  // Function to find profitable patterns with progress tracking
+  const findProfitablePatterns = async () => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let allPatterns = [];
+    const totalCombinations = days.length * 24;
+    let processedCombinations = 0;
+
+    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
+      setCurrentOperation(`Analyzing ${days[buyDayIndex]}...`);
+      
+      for (let buyHour = 0; buyHour < 24; buyHour++) {
+        // Process this combination
+        const results = await processDayHourCombo(buyDayIndex, buyHour, days);
+        allPatterns = [...allPatterns, ...results];
+        
+        // Update progress
+        processedCombinations++;
+        const progress = (processedCombinations / totalCombinations) * 100;
+        setAnalysisProgress(Math.round(progress));
+        
+        // Let UI update
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
 
     // Sort and get top 5
-    return patterns
+    return allPatterns
       .sort((a, b) => {
         if (b.profitCount !== a.profitCount) {
           return b.profitCount - a.profitCount;
@@ -688,6 +791,9 @@ const ProfitablePatterns = ({ processedData }) => {
       if (!isVisible || patterns.length > 0 || !processedData || processedData.length === 0) return;
       
       setIsLoading(true);
+      setAnalysisProgress(0);
+      setCurrentOperation('Starting analysis...');
+      
       try {
         const newPatterns = await findProfitablePatterns();
         if (isMounted) {
@@ -698,6 +804,8 @@ const ProfitablePatterns = ({ processedData }) => {
       }
       if (isMounted) {
         setIsLoading(false);
+        setAnalysisProgress(0);
+        setCurrentOperation('');
       }
     };
 
@@ -759,7 +867,10 @@ const ProfitablePatterns = ({ processedData }) => {
               color: '#1976d2',
               background: 'white',
               borderRadius: 8,
-              margin: '20px 0'
+              margin: '20px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
             }}>
               <div className="loading-spinner" style={{
                 border: '4px solid #f3f3f3',
@@ -770,7 +881,23 @@ const ProfitablePatterns = ({ processedData }) => {
                 animation: 'spin 1s linear infinite',
                 margin: '0 auto 15px'
               }} />
-              Analyzing trading patterns...
+              <div style={{ marginBottom: '15px' }}>{currentOperation}</div>
+              <div style={{
+                width: '300px',
+                height: '8px',
+                background: '#e0e0e0',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                marginBottom: '10px'
+              }}>
+                <div style={{
+                  width: `${analysisProgress}%`,
+                  height: '100%',
+                  background: '#1976d2',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              <div>{analysisProgress}% Complete</div>
               <style>{`
                 @keyframes spin {
                   0% { transform: rotate(0deg); }
