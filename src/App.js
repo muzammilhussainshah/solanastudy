@@ -302,7 +302,13 @@ const ClosingPriceTable = () => {
             <option value="ETHUSDT">Ethereum (ETH)</option>
             <option value="XRPUSDT">XRP (XRP)</option>
             <option value="BTCUSDT">Bitcoin (BTC)</option>
+            <option value="BCHUSDT">Bitcoin Cash (BCH)</option>
+            <option value="LTCUSDT">Litecoin (LTC)</option>
             <option value="BNBUSDT">Binance Coin (BNB)</option>
+            <option value="USDCUSDT">USD Coin (USDC)</option>
+            <option value="TRXUSDT">Tron (TRX)</option>
+            <option value="XLMUSDT">Stellar (XLM)</option>
+            <option value="AVAXUSDT">Avalanche (AVAX)</option>
             <option value="OPUSDT">Optimism (OP)</option>
             <option value="DOGEUSDT">Dogecoin (DOGE)</option>
             <option value="LINKUSDT">Chainlink (LINK)</option>
@@ -313,6 +319,7 @@ const ClosingPriceTable = () => {
             <option value="INJUSDT">Injective (INJ)</option>
             <option value="GRTUSDT">The Graph (GRT)</option>
             <option value="FLOKIUSDT">Floki (FLOKI)</option>
+            <option value="HBARUSDT">Hedera (HBAR)</option>
           </select>
         </div>
 
@@ -584,7 +591,13 @@ const ClosingPriceTable = () => {
          selectedCoin === 'ETHUSDT' ? 'Ethereum (ETH/USDT)' :
          selectedCoin === 'XRPUSDT' ? 'XRP (XRP/USDT)' :
          selectedCoin === 'BTCUSDT' ? 'Bitcoin (BTC/USDT)' :
+         selectedCoin === 'BCHUSDT' ? 'Bitcoin Cash (BCH/USDT)' :
+         selectedCoin === 'LTCUSDT' ? 'Litecoin (LTC/USDT)' :
          selectedCoin === 'BNBUSDT' ? 'Binance Coin (BNB/USDT)' :
+         selectedCoin === 'USDCUSDT' ? 'USD Coin (USDC/USDT)' :
+         selectedCoin === 'TRXUSDT' ? 'Tron (TRX/USDT)' :
+         selectedCoin === 'XLMUSDT' ? 'Stellar (XLM/USDT)' :
+         selectedCoin === 'AVAXUSDT' ? 'Avalanche (AVAX/USDT)' :
          selectedCoin === 'OPUSDT' ? 'Optimism (OP/USDT)' :
          selectedCoin === 'DOGEUSDT' ? 'Dogecoin (DOGE/USDT)' :
          selectedCoin === 'LINKUSDT' ? 'Chainlink (LINK/USDT)' :
@@ -595,6 +608,7 @@ const ClosingPriceTable = () => {
          selectedCoin === 'INJUSDT' ? 'Injective (INJ/USDT)' :
          selectedCoin === 'GRTUSDT' ? 'The Graph (GRT/USDT)' :
          selectedCoin === 'FLOKIUSDT' ? 'Floki (FLOKI/USDT)' :
+         selectedCoin === 'HBARUSDT' ? 'Hedera (HBAR/USDT)' :
          `${selectedCoin.replace('USDT', '')} (${selectedCoin.replace('USDT', '')}/USDT)`} Trading Data - {filteredData.length} Periods
       </h2>
 
