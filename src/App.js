@@ -17,11 +17,21 @@ const ClosingPriceTable = () => {
     totalChange: 0,
     changePercent: 0
   });
-  const [selectedWeekdays, setSelectedWeekdays] = useState([]);
+  // Initialize all days and hours as selected
+  const [selectedDayHourCombos, setSelectedDayHourCombos] = useState(
+    [].concat(...['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day =>
+      Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`)
+    ))
+  );
+  // Initialize all dates (1-31) as selected
+  const [selectedDates, setSelectedDates] = useState(
+    Array.from({length: 31}, (_, i) => (i + 1).toString())
+  );
+  // Initialize all hours (00-23) as selected
+  const [selectedHours, setSelectedHours] = useState(
+    Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0'))
+  );
   const [filterMode, setFilterMode] = useState("day"); // "day" or "date" or "hour"
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [selectedHours, setSelectedHours] = useState([]);
-  const [selectedDayHourCombos, setSelectedDayHourCombos] = useState([]); // e.g., ['Mon-09', 'Fri-23']
 
   useEffect(() => {
     const fetchData = async () => {
@@ -522,9 +532,6 @@ const ClosingPriceTable = () => {
       
       <h2 className="trading-title">Solana (SOL/USDT) Trading Data - {filteredData.length} Periods</h2>
 
-      {/* Pattern Analysis Tips Section */}
-      <PatternAnalysisTips processedData={processedData} />
-      
       {/* Summary Cards */}
       <div className="summary-grid">
         <div className="summary-card summary-card-blue">
@@ -552,6 +559,63 @@ const ClosingPriceTable = () => {
 
       {/* Data Table */}
       <div className="data-table-container">
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          marginBottom: '10px',
+          alignItems: 'center'
+        }}>
+          <button
+            onClick={() => {
+              // First add the header
+              const header = "Period\tTime\tClosing Price\tChange\tVolume";
+              // Then add each row of data
+              const tableData = filteredData.map(row => 
+                `${row.period}\t${row.time}\t$${row.closingPrice}\t${parseFloat(row.change) >= 0 ? '+' : ''}$${row.change}\t${row.volume}`
+              ).join('\n');
+              // Combine header and data
+              navigator.clipboard.writeText(header + '\n' + tableData);
+            }}
+            style={{
+              background: '#f0f7ff',
+              border: '1px solid #bfdeff',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#1976d2',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#e3f2fd';
+              e.currentTarget.style.borderColor = '#90caf9';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#f0f7ff';
+              e.currentTarget.style.borderColor = '#bfdeff';
+            }}
+            title="Copy all data"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy Table
+          </button>
+        </div>
         <table className="data-table">
           <thead className="table-header">
             <tr>
@@ -586,94 +650,6 @@ const ClosingPriceTable = () => {
 
       {/* Profitable Patterns Analysis - Now at the bottom */}
       <ProfitablePatterns processedData={processedData} />
-    </div>
-  );
-};
-
-// PatternAnalysisTips: Analyzes closing prices for patterns and displays tips
-const PatternAnalysisTips = ({ processedData }) => {
-  if (!processedData || processedData.length === 0) return null;
-
-  // Helper: group by key
-  const groupBy = (arr, keyFn) => {
-    return arr.reduce((acc, item) => {
-      const key = keyFn(item);
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item);
-      return acc;
-    }, {});
-  };
-
-  // 1. Day-of-week analysis
-  const byDay = groupBy(processedData, row => row.compactTime.split(",")[0]);
-  const dayAverages = Object.entries(byDay).map(([day, rows]) => ({
-    day,
-    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
-    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
-    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
-  }));
-  dayAverages.sort((a, b) => b.avg - a.avg);
-
-  // 2. Hour-of-day analysis
-  const byHour = groupBy(processedData, row => row.compactTime.split(",")[2].trim().split(":")[0]);
-  const hourAverages = Object.entries(byHour).map(([hour, rows]) => ({
-    hour,
-    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
-    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
-    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
-  }));
-  hourAverages.sort((a, b) => b.avg - a.avg);
-
-  // 3. Date-of-month analysis
-  const byDate = groupBy(processedData, row => row.compactTime.split(",")[1].trim().split("/")[1]);
-  const dateAverages = Object.entries(byDate).map(([date, rows]) => ({
-    date,
-    avg: rows.reduce((sum, r) => sum + parseFloat(r.closingPrice), 0) / rows.length,
-    min: Math.min(...rows.map(r => parseFloat(r.closingPrice))),
-    max: Math.max(...rows.map(r => parseFloat(r.closingPrice))),
-  }));
-  dateAverages.sort((a, b) => b.avg - a.avg);
-
-  // Tips
-  const bestDay = dayAverages[0];
-  const worstDay = dayAverages[dayAverages.length - 1];
-  const bestHour = hourAverages[0];
-  const worstHour = hourAverages[hourAverages.length - 1];
-  const bestDate = dateAverages[0];
-  const worstDate = dateAverages[dateAverages.length - 1];
-
-  return (
-    <div style={{
-      background: '#f5f7fa',
-      border: '1px solid #dbeafe',
-      borderRadius: 10,
-      padding: '18px 24px',
-      margin: '24px 0',
-      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
-    }}>
-      <h3 style={{ color: '#1976d2', marginTop: 0 }}>Market Pattern Insights (Last 3000 Periods)</h3>
-      <ul style={{ fontSize: 16, marginBottom: 0 }}>
-        <li>
-          <b>Highest average price day:</b> {bestDay.day} (${bestDay.avg.toFixed(2)})<br/>
-          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDay.day} (${worstDay.avg.toFixed(2)})</span>
-        </li>
-        <li>
-          <b>Hour with highest average price:</b> {bestHour.hour}:00 (${bestHour.avg.toFixed(2)})<br/>
-          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstHour.hour}:00 (${worstHour.avg.toFixed(2)})</span>
-        </li>
-        <li>
-          <b>Date of month with highest average price:</b> {bestDate.date} (${bestDate.avg.toFixed(2)})<br/>
-          <span style={{ color: '#666', fontSize: 14 }}>Lowest: {worstDate.date} (${worstDate.avg.toFixed(2)})</span>
-        </li>
-      </ul>
-      <div style={{ color: '#444', fontSize: 15, marginTop: 10 }}>
-        <b>Tips:</b>
-        <ul style={{ marginTop: 4 }}>
-          <li>Consider monitoring the market on <b>{bestDay.day}</b> and around <b>{bestHour.hour}:00</b> for potential high price opportunities.</li>
-          <li>Historically, prices tend to be lower on <b>{worstDay.day}</b> and at <b>{worstHour.hour}:00</b>.</li>
-          <li>These patterns are based on the last 3000 hourly periods and may change over time. Always do your own research before trading.</li>
-        </ul>
-      </div>
     </div>
   );
 };
