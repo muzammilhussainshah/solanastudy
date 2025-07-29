@@ -273,506 +273,443 @@ const ClosingPriceTable = () => {
   return (
     <div className="trading-container">
       {/* Coin and Month Selector Dropdowns */}
-      <div style={{ 
-        marginBottom: "20px", 
-        padding: "15px",
-        background: "#f5f7fa",
-        borderRadius: "8px",
-        border: "1px solid #dbeafe",
-        display: "flex",
-        gap: "20px",
-        alignItems: "center",
-        flexWrap: "wrap"
-      }}>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <label style={{ 
-            fontWeight: "bold", 
-            marginRight: "10px",
-            color: "#1976d2"
-          }}>
-            Select Coin:
-          </label>
-          <select
-            value={selectedCoin}
-            onChange={(e) => {
-              setSelectedCoin(e.target.value);
-              setLoading(true); // Trigger reload when coin changes
-            }}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid #bfdeff",
-              backgroundColor: "white",
-              fontSize: "14px",
-              cursor: "pointer"
-            }}
-          >
-            <option value="SOLUSDT">Solana (SOL)</option>
-            <option value="ETHUSDT">Ethereum (ETH)</option>
-            <option value="XRPUSDT">XRP (XRP)</option>
-            <option value="BTCUSDT">Bitcoin (BTC)</option>
-            <option value="BCHUSDT">Bitcoin Cash (BCH)</option>
-            <option value="LTCUSDT">Litecoin (LTC)</option>
-            <option value="BNBUSDT">Binance Coin (BNB)</option>
-            <option value="USDCUSDT">USD Coin (USDC)</option>
-            <option value="TRXUSDT">Tron (TRX)</option>
-            <option value="XLMUSDT">Stellar (XLM)</option>
-            <option value="AVAXUSDT">Avalanche (AVAX)</option>
-            <option value="OPUSDT">Optimism (OP)</option>
-            <option value="DOGEUSDT">Dogecoin (DOGE)</option>
-            <option value="LINKUSDT">Chainlink (LINK)</option>
-            <option value="ATOMUSDT">Cosmos (ATOM)</option>
-            <option value="ADAUSDT">Cardano (ADA)</option>
-            <option value="SUIUSDT">Sui (SUI)</option>
-            <option value="SHIBUSDT">Shiba Inu (SHIB)</option>
-            <option value="INJUSDT">Injective (INJ)</option>
-            <option value="GRTUSDT">The Graph (GRT)</option>
-            <option value="FLOKIUSDT">Floki (FLOKI)</option>
-            <option value="HBARUSDT">Hedera (HBAR)</option>
-            <option value="UNIUSDT">Uniswap (UNI)</option>
-            <option value="DOTUSDT">Polkadot (DOT)</option>
-            <option value="TONUSDT">Toncoin (TON)</option>
-          </select>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+      <div className="control-panel">
+        <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <label style={{ 
-              fontWeight: "bold", 
-              marginRight: "10px",
-              color: "#1976d2"
-            }}>
-              Select Data Range:
-            </label>
+            <label className="modern-label">Select Coin:</label>
             <select
-              value={selectedMonths}
+              value={selectedCoin}
               onChange={(e) => {
-                setSelectedMonths(Number(e.target.value));
-                setLoading(true); // Trigger reload when months change
+                setSelectedCoin(e.target.value);
+                setLoading(true);
               }}
-              style={{
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid #bfdeff",
-                backgroundColor: "white",
-                fontSize: "14px",
-                cursor: "pointer"
-              }}
+              className="modern-select"
             >
-              {[1,2,3,6,12,24,36,48,60].map(months => (
-                <option key={months} value={months}>
-                  {months === 1 ? '1 Month' : `${months} Months`}
-                </option>
-              ))}
+              <option value="SOLUSDT">Solana (SOL)</option>
+              <option value="ETHUSDT">Ethereum (ETH)</option>
+              <option value="XRPUSDT">XRP (XRP)</option>
+              <option value="BTCUSDT">Bitcoin (BTC)</option>
+              <option value="BCHUSDT">Bitcoin Cash (BCH)</option>
+              <option value="LTCUSDT">Litecoin (LTC)</option>
+              <option value="BNBUSDT">Binance Coin (BNB)</option>
+              <option value="USDCUSDT">USD Coin (USDC)</option>
+              <option value="TRXUSDT">Tron (TRX)</option>
+              <option value="XLMUSDT">Stellar (XLM)</option>
+              <option value="AVAXUSDT">Avalanche (AVAX)</option>
+              <option value="OPUSDT">Optimism (OP)</option>
+              <option value="DOGEUSDT">Dogecoin (DOGE)</option>
+              <option value="LINKUSDT">Chainlink (LINK)</option>
+              <option value="ATOMUSDT">Cosmos (ATOM)</option>
+              <option value="ADAUSDT">Cardano (ADA)</option>
+              <option value="SUIUSDT">Sui (SUI)</option>
+              <option value="SHIBUSDT">Shiba Inu (SHIB)</option>
+              <option value="INJUSDT">Injective (INJ)</option>
+              <option value="GRTUSDT">The Graph (GRT)</option>
+              <option value="FLOKIUSDT">Floki (FLOKI)</option>
+              <option value="HBARUSDT">Hedera (HBAR)</option>
+              <option value="UNIUSDT">Uniswap (UNI)</option>
+              <option value="DOTUSDT">Polkadot (DOT)</option>
+              <option value="TONUSDT">Toncoin (TON)</option>
             </select>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <label style={{ 
-              fontWeight: "bold", 
-              marginRight: "10px",
-              color: "#1976d2"
-            }}>
-              Start From Date:
-            </label>
-            <input
-              type="date"
-              value={selectedStartDate}
-              onChange={(e) => {
-                setSelectedStartDate(e.target.value);
-                setLoading(true); // Trigger reload when date changes
-              }}
-              style={{
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid #bfdeff",
-                backgroundColor: "white",
-                fontSize: "14px",
-                cursor: "pointer"
-              }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <label className="modern-label">Select Data Range:</label>
+              <select
+                value={selectedMonths}
+                onChange={(e) => {
+                  setSelectedMonths(Number(e.target.value));
+                  setLoading(true);
+                }}
+                className="modern-select"
+              >
+                {[1,2,3,6,12,24,36,48,60].map(months => (
+                  <option key={months} value={months}>
+                    {months === 1 ? '1 Month' : `${months} Months`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <label className="modern-label">Start From Date:</label>
+              <input
+                type="date"
+                value={selectedStartDate}
+                onChange={(e) => {
+                  setSelectedStartDate(e.target.value);
+                  setLoading(true);
+                }}
+                className="modern-input"
+              />
+            </div>
           </div>
         </div>
-
-        {loading && (
-          <span style={{ 
-            marginLeft: "10px",
-            color: "#666",
-            fontSize: "14px"
-          }}>
-            Loading data...
-          </span>
-        )}
       </div>
 
-      {/* Filter Mode Toggle */}
-      <div style={{ marginBottom: "12px" }}>
-        <label>
-          <input
-            type="radio"
-            value="day"
-            checked={filterMode === "day"}
-            onChange={() => setFilterMode("day")}
-          />
-          Day
-        </label>
-        <label style={{ marginLeft: "16px" }}>
-          <input
-            type="radio"
-            value="date"
-            checked={filterMode === "date"}
-            onChange={() => setFilterMode("date")}
-          />
-          Date
-        </label>
-        <label style={{ marginLeft: "16px" }}>
-          <input
-            type="radio"
-            value="hour"
-            checked={filterMode === "hour"}
-            onChange={() => setFilterMode("hour")}
-          />
-          Hour
-        </label>
-      </div>
-      {/* Show only the relevant filter */}
-      {filterMode === "day" ? (
-        <>
-          {/* Improved Select/Unselect All Buttons above the grid */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-            <button
-              type="button"
-              style={{
-                padding: '6px 18px',
-                background: '#1976d2',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 15,
-                cursor: 'pointer',
-                boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)',
-                transition: 'background 0.2s',
-              }}
-              onMouseOver={e => e.currentTarget.style.background = '#1565c0'}
-              onMouseOut={e => e.currentTarget.style.background = '#1976d2'}
-              onClick={() => setSelectedDayHourCombos(
-                [].concat(...['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day =>
-                  Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`)
-                ))
-              )}
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              style={{
-                padding: '6px 18px',
-                background: '#e0e0e0',
-                color: '#333',
-                border: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 15,
-                cursor: 'pointer',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                transition: 'background 0.2s',
-              }}
-              onMouseOver={e => e.currentTarget.style.background = '#bdbdbd'}
-              onMouseOut={e => e.currentTarget.style.background = '#e0e0e0'}
-              onClick={() => setSelectedDayHourCombos([])}
-            >
-              Unselect All
-            </button>
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <div className="loading-text">{loadingPhase}</div>
+          <div className="loading-progress-bar">
+            <div 
+              className="loading-progress-fill"
+              style={{ width: `${loadingProgress}%` }}
+            />
           </div>
-          {/* Day-Hour Grid Filter */}
-          <div className="day-hour-grid-filter" style={{ marginBottom: "16px", overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '2px 6px' }}></th>
-                  {Array.from({length: 24}, (_, i) => (
-                    <th key={i} style={{ padding: '2px 6px', fontSize: 12 }}>{i.toString().padStart(2, '0')}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
-                  // For each day, get all 24 combos
-                  const allCombosForDay = Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`);
-                  const allSelected = allCombosForDay.every(combo => selectedDayHourCombos.includes(combo));
-                  return (
-                    <tr key={day}>
-                      <td style={{ padding: '2px 6px', fontWeight: 'bold', fontSize: 12 }}>{day}</td>
-                      {Array.from({length: 24}, (_, i) => {
-                        const hourStr = i.toString().padStart(2, '0');
-                        const combo = `${day}-${hourStr}`;
+          <div className="loading-progress-text">
+            {loadingProgress}% Complete
+          </div>
+        </div>
+      ) : error ? (
+        <div className="error-container">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginBottom: "1rem", color: "#dc2626" }}
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12" y2="16" />
+          </svg>
+          <div style={{ color: "#dc2626", fontWeight: "600", marginBottom: "0.5rem" }}>
+            Error
+          </div>
+          <div>{error}</div>
+        </div>
+      ) : (
+        <>
+          {/* Filter Controls */}
+          <div className="control-panel">
+            <div style={{ marginBottom: "1rem" }}>
+              <label className="modern-label" style={{ marginRight: "2rem" }}>
+                <input
+                  type="radio"
+                  value="day"
+                  checked={filterMode === "day"}
+                  onChange={() => setFilterMode("day")}
+                  className="modern-radio"
+                />
+                Day
+              </label>
+              <label className="modern-label" style={{ marginRight: "2rem" }}>
+                <input
+                  type="radio"
+                  value="date"
+                  checked={filterMode === "date"}
+                  onChange={() => setFilterMode("date")}
+                  className="modern-radio"
+                />
+                Date
+              </label>
+              <label className="modern-label">
+                <input
+                  type="radio"
+                  value="hour"
+                  checked={filterMode === "hour"}
+                  onChange={() => setFilterMode("hour")}
+                  className="modern-radio"
+                />
+                Hour
+              </label>
+            </div>
+
+            {filterMode === "day" && (
+              <div className="day-hour-grid">
+                {/* Improved Select/Unselect All Buttons above the grid */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '6px 18px',
+                      background: '#1976d2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: 15,
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)',
+                      transition: 'background 0.2s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#1565c0'}
+                    onMouseOut={e => e.currentTarget.style.background = '#1976d2'}
+                    onClick={() => setSelectedDayHourCombos(
+                      [].concat(...['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day =>
+                        Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`)
+                      ))
+                    )}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '6px 18px',
+                      background: '#e0e0e0',
+                      color: '#333',
+                      border: 'none',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: 15,
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                      transition: 'background 0.2s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#bdbdbd'}
+                    onMouseOut={e => e.currentTarget.style.background = '#e0e0e0'}
+                    onClick={() => setSelectedDayHourCombos([])}
+                  >
+                    Unselect All
+                  </button>
+                </div>
+                {/* Day-Hour Grid Filter */}
+                <div className="day-hour-grid-filter" style={{ marginBottom: "16px", overflowX: 'auto' }}>
+                  <table style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '2px 6px' }}></th>
+                        {Array.from({length: 24}, (_, i) => (
+                          <th key={i} style={{ padding: '2px 6px', fontSize: 12 }}>{i.toString().padStart(2, '0')}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
+                        // For each day, get all 24 combos
+                        const allCombosForDay = Array.from({length: 24}, (_, i) => `${day}-${i.toString().padStart(2, '0')}`);
+                        const allSelected = allCombosForDay.every(combo => selectedDayHourCombos.includes(combo));
                         return (
-                          <td key={combo} style={{ padding: '2px 6px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedDayHourCombos.includes(combo)}
-                              onChange={() => {
-                                setSelectedDayHourCombos(prev =>
-                                  prev.includes(combo)
-                                    ? prev.filter(c => c !== combo)
-                                    : [...prev, combo]
-                                );
-                              }}
-                            />
-                          </td>
+                          <tr key={day}>
+                            <td style={{ padding: '2px 6px', fontWeight: 'bold', fontSize: 12 }}>{day}</td>
+                            {Array.from({length: 24}, (_, i) => {
+                              const hourStr = i.toString().padStart(2, '0');
+                              const combo = `${day}-${hourStr}`;
+                              return (
+                                <td key={combo} style={{ padding: '2px 6px', textAlign: 'center' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDayHourCombos.includes(combo)}
+                                    onChange={() => {
+                                      setSelectedDayHourCombos(prev =>
+                                        prev.includes(combo)
+                                          ? prev.filter(c => c !== combo)
+                                          : [...prev, combo]
+                                      );
+                                    }}
+                                  />
+                                </td>
+                              );
+                            })}
+                            {/* All checkbox at the end of the row */}
+                            <td style={{ padding: '2px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: 12 }}>
+                              <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    // Add all combos for this day
+                                    setSelectedDayHourCombos(prev => Array.from(new Set([...prev, ...allCombosForDay])));
+                                  } else {
+                                    // Remove all combos for this day
+                                    setSelectedDayHourCombos(prev => prev.filter(combo => !allCombosForDay.includes(combo)));
+                                  }
+                                }}
+                              />
+                              All
+                            </td>
+                          </tr>
                         );
                       })}
-                      {/* All checkbox at the end of the row */}
-                      <td style={{ padding: '2px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              // Add all combos for this day
-                              setSelectedDayHourCombos(prev => Array.from(new Set([...prev, ...allCombosForDay])));
-                            } else {
-                              // Remove all combos for this day
-                              setSelectedDayHourCombos(prev => prev.filter(combo => !allCombosForDay.includes(combo)));
-                            }
-                          }}
-                        />
-                        All
-                      </td>
-                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {filterMode === "date" && (
+              <div className="date-filter modern-filter-group">
+                {Array.from({length: 31}, (_, i) => (i+1)).map(date => (
+                  <label key={date} className="modern-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={selectedDates.includes(date.toString())}
+                      onChange={() => {
+                        setSelectedDates(prev =>
+                          prev.includes(date.toString())
+                            ? prev.filter(d => d !== date.toString())
+                            : [...prev, date.toString()]
+                        );
+                      }}
+                      className="modern-checkbox"
+                    />
+                    {date}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {filterMode === "hour" && (
+              <div className="hour-filter modern-filter-group">
+                {Array.from({length: 24}, (_, i) => i).map(hour => {
+                  const hourStr = hour.toString().padStart(2, '0');
+                  return (
+                    <label key={hour} className="modern-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedHours.includes(hourStr)}
+                        onChange={() => {
+                          setSelectedHours(prev =>
+                            prev.includes(hourStr)
+                              ? prev.filter(h => h !== hourStr)
+                              : [...prev, hourStr]
+                          );
+                        }}
+                        className="modern-checkbox"
+                      />
+                      {hourStr}
+                    </label>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Summary Cards */}
+          <div className="summary-grid">
+            <div className="summary-card">
+              <p className="summary-label">Current Price</p>
+              <p className="summary-value" style={{ color: "#3b82f6" }}>${summaryStats.lastPrice}</p>
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">Period High</p>
+              <p className="summary-value" style={{ color: "#059669" }}>${summaryStats.highestPrice.toFixed(2)}</p>
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">Period Low</p>
+              <p className="summary-value" style={{ color: "#dc2626" }}>${summaryStats.lowestPrice.toFixed(2)}</p>
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">Total Change</p>
+              <p className="summary-value" style={{ color: summaryStats.totalChange >= 0 ? "#059669" : "#dc2626" }}>
+                ${summaryStats.totalChange} ({summaryStats.changePercent}%)
+              </p>
+              <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.5rem" }}>
+                Over {filteredData.length} period{filteredData.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+
+          {/* Data Tables */}
+          <div className="data-table-container">
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              marginBottom: '10px',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  // First add the header
+                  const header = "Period\tTime\tClosing Price\tChange\tVolume";
+                  // Then add each row of data
+                  const tableData = filteredData.map(row => 
+                    `${row.period}\t${row.time}\t$${row.closingPrice}\t${parseFloat(row.change) >= 0 ? '+' : ''}$${row.change}\t${row.volume}`
+                  ).join('\n');
+                  // Combine header and data
+                  navigator.clipboard.writeText(header + '\n' + tableData);
+                }}
+                style={{
+                  background: '#f0f7ff',
+                  border: '1px solid #bfdeff',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#1976d2',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#e3f2fd';
+                  e.currentTarget.style.borderColor = '#90caf9';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#f0f7ff';
+                  e.currentTarget.style.borderColor = '#bfdeff';
+                }}
+                title="Copy all data"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy Table
+              </button>
+            </div>
+            <table className="data-table">
+              <thead className="table-header">
+                <tr>
+                  <th className="table-header-cell">Period</th>
+                  <th className="table-header-cell">Time</th>
+                  <th className="table-header-cell table-header-cell-right">Closing Price</th>
+                  <th className="table-header-cell table-header-cell-right">Change</th>
+                  <th className="table-header-cell table-header-cell-right">Volume</th>
+                </tr>
+              </thead>
+              <tbody className="table-body">
+                {filteredData.map((row, index) => (
+                  <tr key={index} className="table-row">
+                    <td className="table-cell">{row.period}</td>
+                    <td className="table-cell table-cell-mono">{row.time}</td>
+                    <td className="table-cell table-cell-right table-cell-bold">${row.closingPrice}</td>
+                    <td className={`table-cell table-cell-right ${
+                      parseFloat(row.change) >= 0 ? 'table-cell-green' : 'table-cell-red'
+                    }`}>
+                      {parseFloat(row.change) >= 0 ? '+' : ''}${row.change}
+                    </td>
+                    <td className="table-cell table-cell-right table-cell-gray">{row.volume}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </>
-      ) : filterMode === "date" ? (
-        <div className="date-filter" style={{ marginBottom: "16px", display: 'flex', alignItems: 'center' }}>
-          {Array.from({length: 31}, (_, i) => (i+1)).map(date => (
-            <label key={date} style={{ marginRight: "6px" }}>
-              <input
-                type="checkbox"
-                checked={selectedDates.includes(date.toString())}
-                onChange={() => {
-                  setSelectedDates(prev =>
-                    prev.includes(date.toString())
-                      ? prev.filter(d => d !== date.toString())
-                      : [...prev, date.toString()]
-                  );
-                }}
-              />
-              {date}
-            </label>
-          ))}
-          <button
-            type="button"
-            style={{ marginLeft: 8, marginRight: 16 }}
-            onClick={() => setSelectedDates(selectedDates.length === 31 ? [] : Array.from({length: 31}, (_, i) => (i+1).toString()))}
-          >
-            {selectedDates.length === 31 ? 'Unselect All' : 'Select All'}
-          </button>
-        </div>
-      ) : (
-        filterMode === "hour" && (
-          <div className="hour-filter" style={{ marginBottom: "16px", display: 'flex', alignItems: 'center' }}>
-            {Array.from({length: 24}, (_, i) => i).map(hour => {
-              const hourStr = hour.toString().padStart(2, '0');
-              return (
-                <label key={hour} style={{ marginRight: "6px" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedHours.includes(hourStr)}
-                    onChange={() => {
-                      setSelectedHours(prev =>
-                        prev.includes(hourStr)
-                          ? prev.filter(h => h !== hourStr)
-                          : [...prev, hourStr]
-                      );
-                    }}
-                  />
-                  {hourStr}
-                </label>
-              );
-            })}
-            <button
-              type="button"
-              style={{ marginLeft: 8, marginRight: 16 }}
-              onClick={() => setSelectedHours(selectedHours.length === 24 ? [] : Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')))}
-            >
-              {selectedHours.length === 24 ? 'Unselect All' : 'Select All'}
-            </button>
+
+          <div style={{ 
+            textAlign: "center",
+            color: "#64748b",
+            fontSize: "0.875rem",
+            margin: "2rem 0"
+          }}>
+            Total periods: {filteredData.length} | Complete dataset with historical data | Powered by Binance API
           </div>
-        )
+
+          {/* Pattern Analysis */}
+          <div className="pattern-section">
+            <ProfitablePatterns processedData={processedData} />
+          </div>
+        </>
       )}
-
-      {/* Compact Table at the top */}
-      <div className="compact-table-container">
-        <table className="compact-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredData.map((row, index) => (
-              <tr key={index}>
-                <td>{row.compactTime}</td>
-                <td>${row.closingPrice}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      <h2 className="trading-title">
-        {selectedCoin === 'SOLUSDT' ? 'Solana (SOL/USDT)' : 
-         selectedCoin === 'ETHUSDT' ? 'Ethereum (ETH/USDT)' :
-         selectedCoin === 'XRPUSDT' ? 'XRP (XRP/USDT)' :
-         selectedCoin === 'BTCUSDT' ? 'Bitcoin (BTC/USDT)' :
-         selectedCoin === 'BCHUSDT' ? 'Bitcoin Cash (BCH/USDT)' :
-         selectedCoin === 'LTCUSDT' ? 'Litecoin (LTC/USDT)' :
-         selectedCoin === 'BNBUSDT' ? 'Binance Coin (BNB/USDT)' :
-         selectedCoin === 'USDCUSDT' ? 'USD Coin (USDC/USDT)' :
-         selectedCoin === 'TRXUSDT' ? 'Tron (TRX/USDT)' :
-         selectedCoin === 'XLMUSDT' ? 'Stellar (XLM/USDT)' :
-         selectedCoin === 'AVAXUSDT' ? 'Avalanche (AVAX/USDT)' :
-         selectedCoin === 'OPUSDT' ? 'Optimism (OP/USDT)' :
-         selectedCoin === 'DOGEUSDT' ? 'Dogecoin (DOGE/USDT)' :
-         selectedCoin === 'LINKUSDT' ? 'Chainlink (LINK/USDT)' :
-         selectedCoin === 'ATOMUSDT' ? 'Cosmos (ATOM/USDT)' :
-         selectedCoin === 'ADAUSDT' ? 'Cardano (ADA/USDT)' :
-         selectedCoin === 'SUIUSDT' ? 'Sui (SUI/USDT)' :
-         selectedCoin === 'SHIBUSDT' ? 'Shiba Inu (SHIB/USDT)' :
-         selectedCoin === 'INJUSDT' ? 'Injective (INJ/USDT)' :
-         selectedCoin === 'GRTUSDT' ? 'The Graph (GRT/USDT)' :
-         selectedCoin === 'FLOKIUSDT' ? 'Floki (FLOKI/USDT)' :
-         selectedCoin === 'HBARUSDT' ? 'Hedera (HBAR/USDT)' :
-         selectedCoin === 'UNIUSDT' ? 'Uniswap (UNI/USDT)' :
-         selectedCoin === 'DOTUSDT' ? 'Polkadot (DOT/USDT)' :
-         selectedCoin === 'TONUSDT' ? 'Toncoin (TON/USDT)' :
-         `${selectedCoin.replace('USDT', '')} (${selectedCoin.replace('USDT', '')}/USDT)`} Trading Data - {filteredData.length} Periods
-      </h2>
-
-      {/* Summary Cards */}
-      <div className="summary-grid">
-        <div className="summary-card summary-card-blue">
-          <p className="summary-label">Current Price</p>
-          <p className="summary-value summary-value-blue">${summaryStats.lastPrice}</p>
-        </div>
-        <div className="summary-card summary-card-green">
-          <p className="summary-label">Period High</p>
-          <p className="summary-value summary-value-green">${summaryStats.highestPrice.toFixed(2)}</p>
-        </div>
-        <div className="summary-card summary-card-red">
-          <p className="summary-label">Period Low</p>
-          <p className="summary-value summary-value-red">${summaryStats.lowestPrice.toFixed(2)}</p>
-        </div>
-        <div className={`summary-card ${summaryStats.totalChange >= 0 ? 'summary-card-green' : 'summary-card-red'}`}>
-          <p className="summary-label">Total Change</p>
-          <p className={`summary-value ${summaryStats.totalChange >= 0 ? 'summary-value-green' : 'summary-value-red'}`}>
-            ${summaryStats.totalChange} ({summaryStats.changePercent}%)
-          </p>
-          <p style={{ fontSize: 13, color: '#666', margin: 0 }}>
-            Over {filteredData.length} period{filteredData.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <div className="data-table-container">
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          marginBottom: '10px',
-          alignItems: 'center'
-        }}>
-          <button
-            onClick={() => {
-              // First add the header
-              const header = "Period\tTime\tClosing Price\tChange\tVolume";
-              // Then add each row of data
-              const tableData = filteredData.map(row => 
-                `${row.period}\t${row.time}\t$${row.closingPrice}\t${parseFloat(row.change) >= 0 ? '+' : ''}$${row.change}\t${row.volume}`
-              ).join('\n');
-              // Combine header and data
-              navigator.clipboard.writeText(header + '\n' + tableData);
-            }}
-            style={{
-              background: '#f0f7ff',
-              border: '1px solid #bfdeff',
-              borderRadius: '6px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#1976d2',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = '#e3f2fd';
-              e.currentTarget.style.borderColor = '#90caf9';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = '#f0f7ff';
-              e.currentTarget.style.borderColor = '#bfdeff';
-            }}
-            title="Copy all data"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            Copy Table
-          </button>
-        </div>
-        <table className="data-table">
-          <thead className="table-header">
-            <tr>
-              <th className="table-header-cell">Period</th>
-              <th className="table-header-cell">Time</th>
-              <th className="table-header-cell table-header-cell-right">Closing Price</th>
-              <th className="table-header-cell table-header-cell-right">Change</th>
-              <th className="table-header-cell table-header-cell-right">Volume</th>
-            </tr>
-          </thead>
-          <tbody className="table-body">
-            {filteredData.map((row, index) => (
-              <tr key={index} className="table-row">
-                <td className="table-cell">{row.period}</td>
-                <td className="table-cell table-cell-mono">{row.time}</td>
-                <td className="table-cell table-cell-right table-cell-bold">${row.closingPrice}</td>
-                <td className={`table-cell table-cell-right ${
-                  parseFloat(row.change) >= 0 ? 'table-cell-green' : 'table-cell-red'
-                }`}>
-                  {parseFloat(row.change) >= 0 ? '+' : ''}${row.change}
-                </td>
-                <td className="table-cell table-cell-right table-cell-gray">{row.volume}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="footer-text">
-        Total periods: {filteredData.length} | Complete dataset with historical data | Powered by Binance API
-      </div>
-
-      {/* Profitable Patterns Analysis - Now at the bottom */}
-      <ProfitablePatterns processedData={processedData} />
     </div>
   );
 };
