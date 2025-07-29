@@ -10,6 +10,10 @@ const ClosingPriceTable = () => {
   const [error, setError] = useState(null);
   const [selectedMonths, setSelectedMonths] = useState(1); // Default to 1 month
   const [selectedCoin, setSelectedCoin] = useState('SOLUSDT'); // Default to Solana
+  const [selectedStartDate, setSelectedStartDate] = useState(() => {
+    const date = new Date();
+    return date.toISOString().split('T')[0];
+  }); // Default to current date
   const [summaryStats, setSummaryStats] = useState({
     highestPrice: 0,
     lowestPrice: 0,
@@ -55,8 +59,13 @@ const ClosingPriceTable = () => {
             limit: maxLimit,
           };
           
+          // Calculate endTime from selectedStartDate if it exists
           if (endTime) {
             params.endTime = endTime;
+          } else if (selectedStartDate) {
+            const startDateTime = new Date(selectedStartDate);
+            startDateTime.setHours(23, 59, 59, 999);
+            params.endTime = startDateTime.getTime();
           }
 
           const response = await axios.get('https://api.binance.com/api/v3/klines', { params });
@@ -101,7 +110,7 @@ const ClosingPriceTable = () => {
     };
 
     fetchData();
-  }, [selectedMonths, selectedCoin]); // Add selectedMonths and selectedCoin to dependency array
+  }, [selectedMonths, selectedCoin, selectedStartDate]); // Add selectedStartDate to dependency array
 
   // Process data in chunks to prevent UI freezing
   const processDataInChunks = async (data) => {
@@ -326,35 +335,63 @@ const ClosingPriceTable = () => {
           </select>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <label style={{ 
-            fontWeight: "bold", 
-            marginRight: "10px",
-            color: "#1976d2"
-          }}>
-            Select Data Range:
-          </label>
-          <select
-            value={selectedMonths}
-            onChange={(e) => {
-              setSelectedMonths(Number(e.target.value));
-              setLoading(true); // Trigger reload when months change
-            }}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid #bfdeff",
-              backgroundColor: "white",
-              fontSize: "14px",
-              cursor: "pointer"
-            }}
-          >
-            {[1,2,3,6,12,24,36,48,60].map(months => (
-              <option key={months} value={months}>
-                {months === 1 ? '1 Month' : `${months} Months`}
-              </option>
-            ))}
-          </select>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <label style={{ 
+              fontWeight: "bold", 
+              marginRight: "10px",
+              color: "#1976d2"
+            }}>
+              Select Data Range:
+            </label>
+            <select
+              value={selectedMonths}
+              onChange={(e) => {
+                setSelectedMonths(Number(e.target.value));
+                setLoading(true); // Trigger reload when months change
+              }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #bfdeff",
+                backgroundColor: "white",
+                fontSize: "14px",
+                cursor: "pointer"
+              }}
+            >
+              {[1,2,3,6,12,24,36,48,60].map(months => (
+                <option key={months} value={months}>
+                  {months === 1 ? '1 Month' : `${months} Months`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <label style={{ 
+              fontWeight: "bold", 
+              marginRight: "10px",
+              color: "#1976d2"
+            }}>
+              Start From Date:
+            </label>
+            <input
+              type="date"
+              value={selectedStartDate}
+              onChange={(e) => {
+                setSelectedStartDate(e.target.value);
+                setLoading(true); // Trigger reload when date changes
+              }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #bfdeff",
+                backgroundColor: "white",
+                fontSize: "14px",
+                cursor: "pointer"
+              }}
+            />
+          </div>
         </div>
 
         {loading && (
@@ -764,6 +801,7 @@ const ProfitablePatterns = ({ processedData }) => {
         
         let profitCount = 0;
         let totalProfit = 0;
+        let totalBuyPrice = 0;
         let instances = [];
 
         for (let i = 0; i < processedData.length - 1; i++) {
@@ -779,6 +817,7 @@ const ProfitablePatterns = ({ processedData }) => {
                 if (profit > 0) {
                   profitCount++;
                   totalProfit += profit;
+                  totalBuyPrice += buyPrice;
                   instances.push({
                     buyDate: processedData[i].compactTime,
                     sellDate: processedData[j].compactTime,
@@ -794,13 +833,16 @@ const ProfitablePatterns = ({ processedData }) => {
         }
 
         if (profitCount >= 3) {
+          const avgProfit = totalProfit / profitCount;
+          const avgBuyPrice = totalBuyPrice / profitCount;
           results.push({
             buyDay: days[buyDayIndex],
             buyHour: buyHour.toString().padStart(2, '0'),
             sellDay: days[sellDayIndex],
             sellHour: sellHour.toString().padStart(2, '0'),
             profitCount,
-            averageProfit: (totalProfit / profitCount).toFixed(2),
+            averageProfit: avgProfit.toFixed(2),
+            averageROI: ((avgProfit / avgBuyPrice) * 100).toFixed(2),
             instances
           });
         }
@@ -1003,7 +1045,7 @@ const ProfitablePatterns = ({ processedData }) => {
                     fontSize: 16,
                     fontWeight: 'bold'
                   }}>
-                    Average profit per trade: ${pattern.averageProfit}
+                    Average profit per trade: ${pattern.averageProfit} (ROI: {pattern.averageROI}%)
                   </div>
                   <div style={{ 
                     marginTop: 12, 
