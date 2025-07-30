@@ -43,6 +43,9 @@ const ClosingPriceTable = () => {
   const [isAnalyzingAllCoins, setIsAnalyzingAllCoins] = useState(false);
   const [allCoinsProgress, setAllCoinsProgress] = useState(0);
   const [currentAnalyzingCoin, setCurrentAnalyzingCoin] = useState('');
+  
+  // State for weekly filter in All Coins Analysis
+  const [selectedWeekDays, setSelectedWeekDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -995,15 +998,67 @@ const ClosingPriceTable = () => {
               borderRadius: '12px',
               border: '1px solid #e2e8f0'
             }}>
-              <h2 style={{
-                color: '#1e293b',
-                fontSize: '24px',
-                fontWeight: 'bold',
-                marginBottom: '20px',
-                textAlign: 'center'
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginBottom: '20px'
               }}>
-                📊 All Coins Trading Patterns Analysis
-              </h2>
+                <h2 style={{
+                  color: '#1e293b',
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  marginBottom: '15px',
+                  textAlign: 'center'
+                }}>
+                  📊 All Coins Trading Patterns Analysis
+                </h2>
+                
+                {/* Weekly Filter */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '15px',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}>
+                    Filter by Buy Day:
+                  </span>
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                    <label key={day} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      color: '#374151'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedWeekDays.includes(day)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedWeekDays(prev => [...prev, day]);
+                          } else {
+                            setSelectedWeekDays(prev => prev.filter(d => d !== day));
+                          }
+                        }}
+                        style={{
+                          width: '14px',
+                          height: '14px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      {day}
+                    </label>
+                  ))}
+                </div>
+              </div>
               
               <div style={{
                 display: 'grid',
@@ -1036,13 +1091,15 @@ const ClosingPriceTable = () => {
                         fontSize: '12px',
                         fontWeight: 'bold'
                       }}>
-                        {patterns.length} patterns
+                        {patterns.filter(pattern => selectedWeekDays.includes(pattern.buyDay)).length} patterns
                       </span>
                     </h3>
                     
-                    {patterns.length > 0 ? (
+                    {patterns.filter(pattern => selectedWeekDays.includes(pattern.buyDay)).length > 0 ? (
                       <div>
-                        {patterns.map((pattern, index) => (
+                        {patterns
+                          .filter(pattern => selectedWeekDays.includes(pattern.buyDay))
+                          .map((pattern, index) => (
                           <div key={index} style={{
                             marginBottom: '12px',
                             padding: '10px',
@@ -1076,7 +1133,10 @@ const ClosingPriceTable = () => {
                         textAlign: 'center',
                         padding: '20px'
                       }}>
-                        No profitable patterns found for this coin
+                        {patterns.length > 0 
+                          ? `No patterns found for selected days (${patterns.length} total patterns available)`
+                          : 'No profitable patterns found for this coin'
+                        }
                       </div>
                     )}
                   </div>
