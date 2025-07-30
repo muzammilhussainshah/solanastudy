@@ -2,6 +2,418 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
+// ProfitablePatterns: Analyzes trading data to find most profitable day-hour combinations
+const ProfitablePatterns = ({ processedData }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [patterns, setPatterns] = useState([]);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [currentOperation, setCurrentOperation] = useState('');
+
+  // Function to get day and hour from a data point
+  const getDayHour = (dataPoint) => {
+    const [day, date, time] = dataPoint.compactTime.split(", ");
+    const hour = time.split(":")[0];
+    return { day, hour };
+  };
+
+  // Process a single day-hour combination
+  const processDayHourCombo = async (buyDayIndex, buyHour, days) => {
+    const results = [];
+    for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
+      for (let sellHour = 0; sellHour < 24; sellHour++) {
+        if (buyDayIndex === sellDayIndex && sellHour <= buyHour) continue;
+        
+        let profitCount = 0;
+        let totalProfit = 0;
+        let totalBuyPrice = 0;
+        let instances = [];
+
+        for (let i = 0; i < processedData.length - 1; i++) {
+          const buyPoint = getDayHour(processedData[i]);
+          if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === buyHour.toString().padStart(2, '0')) {
+            for (let j = i + 1; j < processedData.length; j++) {
+              const sellPoint = getDayHour(processedData[j]);
+              if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
+                const buyPrice = parseFloat(processedData[i].closingPrice);
+                const sellPrice = parseFloat(processedData[j].closingPrice);
+                const profit = sellPrice - buyPrice;
+                
+                if (profit > 0) {
+                  profitCount++;
+                  totalProfit += profit;
+                  totalBuyPrice += buyPrice;
+                  instances.push({
+                    buyDate: processedData[i].compactTime,
+                    sellDate: processedData[j].compactTime,
+                    buyPrice: buyPrice.toFixed(2),
+                    sellPrice: sellPrice.toFixed(2),
+                    profit: profit.toFixed(2)
+                  });
+                }
+                break;
+              }
+            }
+          }
+        }
+
+        if (profitCount >= 3) {
+          const avgProfit = totalProfit / profitCount;
+          const avgBuyPrice = totalBuyPrice / profitCount;
+          results.push({
+            buyDay: days[buyDayIndex],
+            buyHour: buyHour.toString().padStart(2, '0'),
+            sellDay: days[sellDayIndex],
+            sellHour: sellHour.toString().padStart(2, '0'),
+            profitCount,
+            averageProfit: avgProfit.toFixed(2),
+            averageROI: ((avgProfit / avgBuyPrice) * 100).toFixed(2),
+            instances
+          });
+        }
+      }
+    }
+    return results;
+  };
+
+  // Function to find profitable patterns with progress tracking
+  const findProfitablePatterns = async () => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let allPatterns = [];
+    const totalCombinations = days.length * 24;
+    let processedCombinations = 0;
+
+    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
+      setCurrentOperation(`Analyzing ${days[buyDayIndex]}...`);
+      
+      for (let buyHour = 0; buyHour < 24; buyHour++) {
+        // Process this combination
+        const results = await processDayHourCombo(buyDayIndex, buyHour, days);
+        allPatterns = [...allPatterns, ...results];
+        
+        // Update progress
+        processedCombinations++;
+        const progress = (processedCombinations / totalCombinations) * 100;
+        setAnalysisProgress(Math.round(progress));
+        
+        // Let UI update
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    // Sort and get top 5
+    return allPatterns
+      .sort((a, b) => {
+        if (b.profitCount !== a.profitCount) {
+          return b.profitCount - a.profitCount;
+        }
+        return parseFloat(b.averageProfit) - parseFloat(a.averageProfit);
+      })
+      .slice(0, 5);
+  };
+
+  // Effect to calculate patterns when visible
+  useEffect(() => {
+    let isMounted = true;
+
+    const calculatePatterns = async () => {
+      if (!isVisible || patterns.length > 0 || !processedData || processedData.length === 0) return;
+      
+      setIsLoading(true);
+      setAnalysisProgress(0);
+      setCurrentOperation('Starting analysis...');
+      
+      try {
+        const newPatterns = await findProfitablePatterns();
+        if (isMounted) {
+          setPatterns(newPatterns);
+        }
+      } catch (error) {
+        console.error('Error calculating patterns:', error);
+      }
+      if (isMounted) {
+        setIsLoading(false);
+        setAnalysisProgress(0);
+        setCurrentOperation('');
+      }
+    };
+
+    calculatePatterns();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isVisible, processedData, patterns.length]);
+
+  if (!processedData || processedData.length === 0) {
+    return null;
+  }
+
+  return (
+    <div style={{
+      background: '#f0f7ff',
+      border: '1px solid #bfdeff',
+      borderRadius: 10,
+      padding: '18px 24px',
+      margin: '24px 0',
+      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: isVisible ? 20 : 0
+      }}>
+        <h3 style={{ color: '#1565c0', margin: 0 }}>Top 5 Most Profitable Trading Patterns</h3>
+        <button
+          onClick={() => {
+            setIsVisible(!isVisible);
+            if (!isVisible) {
+              setPatterns([]); // Reset patterns when showing again
+            }
+          }}
+          style={{
+            padding: '8px 16px',
+            background: isVisible ? '#e0e0e0' : '#1976d2',
+            color: isVisible ? '#333' : 'white',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {isVisible ? 'Hide Patterns' : 'Show Patterns'}
+        </button>
+      </div>
+
+      {isVisible && (
+        <>
+          {isLoading ? (
+            <div style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              fontSize: 16,
+              color: '#1976d2',
+              background: 'white',
+              borderRadius: 8,
+              margin: '20px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}>
+              <div className="loading-spinner" style={{
+                border: '4px solid #f3f3f3',
+                borderTop: '4px solid #1976d2',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 15px'
+              }} />
+              <div style={{ marginBottom: '15px' }}>{currentOperation}</div>
+              <div style={{
+                width: '300px',
+                height: '8px',
+                background: '#e0e0e0',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                marginBottom: '10px'
+              }}>
+                <div style={{
+                  width: `${analysisProgress}%`,
+                  height: '100%',
+                  background: '#1976d2',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              <div>{analysisProgress}% Complete</div>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          ) : (
+            <>
+              {patterns.map((pattern, index) => (
+                <div key={index} style={{ 
+                  marginBottom: 20,
+                  padding: 15,
+                  background: 'white',
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  border: '1px solid #e3f2fd'
+                }}>
+                  <div style={{ 
+                    fontSize: 18, 
+                    fontWeight: 'bold', 
+                    color: '#1976d2',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>#{index + 1}: Buy {pattern.buyDay} {pattern.buyHour}:00 → Sell {pattern.sellDay} {pattern.sellHour}:00</span>
+                    <span style={{ 
+                      backgroundColor: '#e8f5e9', 
+                      color: '#2e7d32',
+                      padding: '4px 8px',
+                      borderRadius: 4,
+                      fontSize: 14
+                    }}>
+                      {pattern.profitCount} times profitable
+                    </span>
+                  </div>
+                  <div style={{ 
+                    color: '#2e7d32', 
+                    marginTop: 8,
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                  }}>
+                    Average profit per trade: ${pattern.averageProfit} (ROI: {pattern.averageROI}%)
+                  </div>
+                  <div style={{ 
+                    marginTop: 12, 
+                    fontSize: 14,
+                    backgroundColor: '#fafafa',
+                    padding: 10,
+                    borderRadius: 6
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#333' }}>Recent Successful Trades:</div>
+                    {pattern.instances.slice(-3).map((instance, i) => (
+                      <div key={i} style={{ 
+                        color: '#555', 
+                        marginBottom: 6,
+                        padding: '4px 0',
+                        borderBottom: i < 2 ? '1px solid #eee' : 'none'
+                      }}>
+                        Buy: ${instance.buyPrice} ({instance.buyDate}) → 
+                        Sell: ${instance.sellPrice} ({instance.sellDate}) = 
+                        <span style={{ color: '#2e7d32', fontWeight: 'bold' }}> +${instance.profit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              
+              <div style={{ 
+                color: '#666', 
+                fontSize: 14, 
+                marginTop: 15,
+                padding: '10px 15px',
+                background: '#fff',
+                borderRadius: 6,
+                border: '1px solid #e0e0e0'
+              }}>
+                <strong>Note:</strong> These patterns are based on {processedData.length} periods of historical data. 
+                Past performance does not guarantee future results. Use this information as one of many factors in your trading decisions.
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// AutoFindResults: Displays the results of the auto-find trade analysis
+const AutoFindResults = ({ results, analysisDate }) => {
+  if (results.length === 0) {
+    return (
+      <div style={{
+        background: '#f0f7ff',
+        border: '1px solid #bfdeff',
+        borderRadius: 10,
+        padding: '18px 24px',
+        margin: '24px 0',
+        boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
+      }}>
+        <h3 style={{ color: '#1565c0', margin: 0 }}>🔍 {analysisDate}'s Most Profitable Trading Patterns</h3>
+        <p style={{ color: '#666', marginTop: '10px' }}>
+          No profitable trading patterns were found for {analysisDate}. This might indicate that the market conditions on {analysisDate} were not conducive to profitable short-term trading.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: '#f0f7ff',
+      border: '1px solid #bfdeff',
+      borderRadius: 10,
+      padding: '18px 24px',
+      margin: '24px 0',
+      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
+    }}>
+      <h3 style={{ color: '#1565c0', margin: 0 }}>🔍 {analysisDate}'s Most Profitable Trading Patterns</h3>
+      {results.map((coinResult, coinIndex) => (
+        <div key={coinIndex} style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e0e0e0' }}>
+          <h4 style={{ color: '#1976d2', margin: '0 0 10px 0' }}>{coinResult.coin} ({coinResult.symbol})</h4>
+          {coinResult.patterns.map((pattern, patternIndex) => (
+            <div key={patternIndex} style={{ 
+              marginBottom: 15,
+              padding: 15,
+              background: 'white',
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '1px solid #e3f2fd'
+            }}>
+              <div style={{ 
+                fontSize: 18, 
+                fontWeight: 'bold', 
+                color: '#1976d2',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span>#{patternIndex + 1}: Buy {pattern.buyDay} {pattern.buyHour}:00 → Sell {pattern.sellDay} {pattern.sellHour}:00</span>
+                <span style={{ 
+                  backgroundColor: '#e8f5e9', 
+                  color: '#2e7d32',
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  fontSize: 14
+                }}>
+                  {pattern.profitCount} times profitable
+                </span>
+              </div>
+              <div style={{ 
+                color: '#2e7d32', 
+                marginTop: 8,
+                fontSize: 16,
+                fontWeight: 'bold'
+              }}>
+                Average profit per trade: ${pattern.averageProfit} (ROI: {pattern.averageROI}%)
+              </div>
+              <div style={{ 
+                marginTop: 12, 
+                fontSize: 14,
+                backgroundColor: '#fafafa',
+                padding: 10,
+                borderRadius: 6
+              }}>
+                <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#333' }}>Recent Successful Trades:</div>
+                {pattern.instances.map((instance, i) => (
+                  <div key={i} style={{ 
+                    color: '#555', 
+                    marginBottom: 6,
+                    padding: '4px 0',
+                    borderBottom: i < pattern.instances.length - 1 ? '1px solid #eee' : 'none'
+                  }}>
+                    Buy: ${instance.buyPrice} ({instance.buyDate}) → 
+                    Sell: ${instance.sellPrice} ({instance.sellDate}) = 
+                    <span style={{ color: '#2e7d32', fontWeight: 'bold' }}> +${instance.profit}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const ClosingPriceTable = () => {
   const [processedData, setProcessedData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +449,236 @@ const ClosingPriceTable = () => {
     Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0'))
   );
   const [filterMode, setFilterMode] = useState("day"); // "day" or "date" or "hour"
+  
+  // Auto-Find Trade feature states
+  const [showAutoFindModal, setShowAutoFindModal] = useState(false);
+  const [selectedAutoFindDay, setSelectedAutoFindDay] = useState('today');
+  const [autoFindLoading, setAutoFindLoading] = useState(false);
+  const [autoFindProgress, setAutoFindProgress] = useState(0);
+  const [autoFindCurrentCoin, setAutoFindCurrentCoin] = useState('');
+  const [autoFindResults, setAutoFindResults] = useState([]);
+  const [autoFindAnalysisDate, setAutoFindAnalysisDate] = useState('');
+
+  // Auto-Find Trade handler
+  const handleAutoFindTrade = async () => {
+    setAutoFindLoading(true);
+    setAutoFindProgress(0);
+    setAutoFindResults([]);
+    
+    const coins = [
+      { symbol: 'SOLUSDT', name: 'Solana' },
+      { symbol: 'ETHUSDT', name: 'Ethereum' },
+      { symbol: 'XRPUSDT', name: 'XRP' },
+      { symbol: 'BTCUSDT', name: 'Bitcoin' },
+      { symbol: 'BCHUSDT', name: 'Bitcoin Cash' },
+      { symbol: 'LTCUSDT', name: 'Litecoin' },
+      { symbol: 'XMRUSDT', name: 'Monero' },
+      { symbol: 'DAIUSDT', name: 'Dai' },
+      { symbol: 'AAVEUSDT', name: 'Aave' },
+      { symbol: 'BNBUSDT', name: 'Binance Coin' },
+      { symbol: 'TRXUSDT', name: 'Tron' },
+      { symbol: 'XLMUSDT', name: 'Stellar' },
+      { symbol: 'AVAXUSDT', name: 'Avalanche' },
+      { symbol: 'OPUSDT', name: 'Optimism' },
+      { symbol: 'DOGEUSDT', name: 'Dogecoin' },
+      { symbol: 'LINKUSDT', name: 'Chainlink' },
+      { symbol: 'ATOMUSDT', name: 'Cosmos' },
+      { symbol: 'ADAUSDT', name: 'Cardano' },
+      { symbol: 'SUIUSDT', name: 'Sui' },
+      { symbol: 'INJUSDT', name: 'Injective' },
+      { symbol: 'GRTUSDT', name: 'The Graph' },
+      { symbol: 'HBARUSDT', name: 'Hedera' },
+      { symbol: 'UNIUSDT', name: 'Uniswap' },
+      { symbol: 'DOTUSDT', name: 'Polkadot' },
+      { symbol: 'TONUSDT', name: 'Toncoin' },
+      { symbol: 'TAOUSDT', name: 'Bittensor' },
+      { symbol: 'ENAUSDT', name: 'Ethena' },
+      { symbol: 'ONDOUSDT', name: 'Ondo' },
+      { symbol: 'ICPUSDT', name: 'Internet Computer' },
+      { symbol: 'APTUSDT', name: 'Aptos' },
+      { symbol: 'POLUSDT', name: 'Polygon' },
+      { symbol: 'ALGOUSDT', name: 'Algorand' },
+      { symbol: 'PENGUUSDT', name: 'Pudgy Penguins' }
+    ];
+    
+    const targetDay = selectedAutoFindDay === 'today' 
+      ? new Date().toLocaleDateString('en-US', { weekday: 'short' })
+      : new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' });
+    
+    const analysisDateStr = selectedAutoFindDay === 'today' ? 'Today' : 'Tomorrow';
+    setAutoFindAnalysisDate(analysisDateStr);
+    
+    let allResults = [];
+    
+    for (let i = 0; i < coins.length; i++) {
+      const coin = coins[i];
+      setAutoFindCurrentCoin(`Analyzing ${coin.name} (${i + 1}/${coins.length})...`);
+      setAutoFindProgress(Math.round((i / coins.length) * 100));
+      
+      try {
+        // Fetch 1-month data for this coin
+        const coinData = await fetchCoinData(coin.symbol);
+        if (coinData && coinData.length > 0) {
+          // Find patterns for the target day
+          const patterns = await findProfitablePatternsForDay(coinData, targetDay);
+          if (patterns.length > 0) {
+            allResults.push({
+              coin: coin.name,
+              symbol: coin.symbol,
+              patterns: patterns.slice(0, 1) // Top 1 pattern per coin to avoid overwhelming UI
+            });
+          }
+        }
+        
+        // Add a small delay to prevent API rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Error analyzing ${coin.name}:`, error);
+      }
+    }
+    
+    // Sort results by best ROI and limit to top 10 coins
+    allResults.sort((a, b) => {
+      const aROI = parseFloat(a.patterns[0]?.averageROI || 0);
+      const bROI = parseFloat(b.patterns[0]?.averageROI || 0);
+      return bROI - aROI;
+    });
+    allResults = allResults.slice(0, 10); // Show top 10 coins only
+    
+    setAutoFindProgress(100);
+    setAutoFindResults(allResults);
+    setAutoFindLoading(false);
+    setShowAutoFindModal(false);
+  };
+  
+  // Fetch data for a specific coin
+  const fetchCoinData = async (symbol) => {
+    try {
+      const hoursPerMonth = 730;
+      const params = {
+        symbol: symbol,
+        interval: '1h',
+        limit: Math.min(hoursPerMonth, 1000)
+      };
+      
+      const response = await axios.get('https://api.binance.com/api/v3/klines', { params });
+      const data = response.data;
+      
+      return data.map((row, index) => {
+        const timestamp = row[0];
+        const closingPrice = parseFloat(row[4]);
+        const volume = parseFloat(row[5]);
+        
+        const date = new Date(timestamp);
+        const timeString = date.toLocaleString('en-US', {
+          weekday: 'short',
+          month: '2-digit',
+          day: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        
+        const weekday = date.toLocaleString('en-US', { weekday: 'short' });
+        const monthDay = date.toLocaleString('en-US', { month: '2-digit', day: '2-digit' });
+        const year = date.toLocaleString('en-US', { year: '2-digit' });
+        const hourMinute = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const compactTimeString = `${weekday}, ${monthDay}/${year}, ${hourMinute}`;
+
+        return {
+          period: index + 1,
+          time: timeString,
+          compactTime: compactTimeString,
+          closingPrice: closingPrice.toFixed(2),
+          volume: volume.toLocaleString(),
+          change: index > 0 ? (closingPrice - parseFloat(data[index-1][4])).toFixed(2) : '0.00',
+          timestamp: timestamp
+        };
+      });
+    } catch (error) {
+      console.error(`Error fetching data for ${symbol}:`, error);
+      return [];
+    }
+  };
+  
+  // Find profitable patterns for a specific day
+  const findProfitablePatternsForDay = async (data, targetDay) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let patterns = [];
+    
+    // Get day and hour from data point
+    const getDayHour = (dataPoint) => {
+      const [day, date, time] = dataPoint.compactTime.split(", ");
+      const hour = time.split(":")[0];
+      return { day, hour };
+    };
+    
+    // Only analyze patterns where buy day matches target day
+    for (let buyHour = 0; buyHour < 24; buyHour++) {
+      for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
+        for (let sellHour = 0; sellHour < 24; sellHour++) {
+          // Skip if selling on same day at same or earlier hour
+          if (targetDay === days[sellDayIndex] && sellHour <= buyHour) continue;
+          
+          let profitCount = 0;
+          let totalProfit = 0;
+          let totalBuyPrice = 0;
+          let instances = [];
+
+          for (let i = 0; i < data.length - 1; i++) {
+            const buyPoint = getDayHour(data[i]);
+            if (buyPoint.day === targetDay && buyPoint.hour === buyHour.toString().padStart(2, '0')) {
+              for (let j = i + 1; j < data.length; j++) {
+                const sellPoint = getDayHour(data[j]);
+                if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
+                  const buyPrice = parseFloat(data[i].closingPrice);
+                  const sellPrice = parseFloat(data[j].closingPrice);
+                  const profit = sellPrice - buyPrice;
+                  
+                  if (profit > 0) {
+                    profitCount++;
+                    totalProfit += profit;
+                    totalBuyPrice += buyPrice;
+                    instances.push({
+                      buyDate: data[i].compactTime,
+                      sellDate: data[j].compactTime,
+                      buyPrice: buyPrice.toFixed(2),
+                      sellPrice: sellPrice.toFixed(2),
+                      profit: profit.toFixed(2)
+                    });
+                  }
+                  break;
+                }
+              }
+            }
+          }
+
+          if (profitCount >= 2) { // Lower threshold for auto-find
+            const avgProfit = totalProfit / profitCount;
+            const avgBuyPrice = totalBuyPrice / profitCount;
+            patterns.push({
+              buyDay: targetDay,
+              buyHour: buyHour.toString().padStart(2, '0'),
+              sellDay: days[sellDayIndex],
+              sellHour: sellHour.toString().padStart(2, '0'),
+              profitCount,
+              averageProfit: avgProfit.toFixed(2),
+              averageROI: ((avgProfit / avgBuyPrice) * 100).toFixed(2),
+              instances: instances.slice(-3) // Keep last 3 instances
+            });
+          }
+        }
+      }
+    }
+    
+    return patterns.sort((a, b) => {
+      if (b.profitCount !== a.profitCount) {
+        return b.profitCount - a.profitCount;
+      }
+      return parseFloat(b.averageProfit) - parseFloat(a.averageProfit);
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -351,6 +993,51 @@ const ClosingPriceTable = () => {
                 }}
                 className="modern-input"
               />
+            </div>
+            
+            {/* Auto-Find Trade Button */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <button
+                onClick={() => setShowAutoFindModal(true)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#059669',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#047857';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(5, 150, 105, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#059669';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(5, 150, 105, 0.2)';
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                Auto-Find Trade
+              </button>
             </div>
           </div>
         </div>
@@ -716,324 +1403,140 @@ const ClosingPriceTable = () => {
           <div className="pattern-section">
             <ProfitablePatterns processedData={processedData} />
           </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-// ProfitablePatterns: Analyzes trading data to find most profitable day-hour combinations
-const ProfitablePatterns = ({ processedData }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [patterns, setPatterns] = useState([]);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [currentOperation, setCurrentOperation] = useState('');
-
-  // Function to get day and hour from a data point
-  const getDayHour = (dataPoint) => {
-    const [day, date, time] = dataPoint.compactTime.split(", ");
-    const hour = time.split(":")[0];
-    return { day, hour };
-  };
-
-  // Process a single day-hour combination
-  const processDayHourCombo = async (buyDayIndex, buyHour, days) => {
-    const results = [];
-    for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
-      for (let sellHour = 0; sellHour < 24; sellHour++) {
-        if (buyDayIndex === sellDayIndex && sellHour <= buyHour) continue;
-        
-        let profitCount = 0;
-        let totalProfit = 0;
-        let totalBuyPrice = 0;
-        let instances = [];
-
-        for (let i = 0; i < processedData.length - 1; i++) {
-          const buyPoint = getDayHour(processedData[i]);
-          if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === buyHour.toString().padStart(2, '0')) {
-            for (let j = i + 1; j < processedData.length; j++) {
-              const sellPoint = getDayHour(processedData[j]);
-              if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
-                const buyPrice = parseFloat(processedData[i].closingPrice);
-                const sellPrice = parseFloat(processedData[j].closingPrice);
-                const profit = sellPrice - buyPrice;
-                
-                if (profit > 0) {
-                  profitCount++;
-                  totalProfit += profit;
-                  totalBuyPrice += buyPrice;
-                  instances.push({
-                    buyDate: processedData[i].compactTime,
-                    sellDate: processedData[j].compactTime,
-                    buyPrice: buyPrice.toFixed(2),
-                    sellPrice: sellPrice.toFixed(2),
-                    profit: profit.toFixed(2)
-                  });
-                }
-                break;
-              }
-            }
-          }
-        }
-
-        if (profitCount >= 3) {
-          const avgProfit = totalProfit / profitCount;
-          const avgBuyPrice = totalBuyPrice / profitCount;
-          results.push({
-            buyDay: days[buyDayIndex],
-            buyHour: buyHour.toString().padStart(2, '0'),
-            sellDay: days[sellDayIndex],
-            sellHour: sellHour.toString().padStart(2, '0'),
-            profitCount,
-            averageProfit: avgProfit.toFixed(2),
-            averageROI: ((avgProfit / avgBuyPrice) * 100).toFixed(2),
-            instances
-          });
-        }
-      }
-    }
-    return results;
-  };
-
-  // Function to find profitable patterns with progress tracking
-  const findProfitablePatterns = async () => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    let allPatterns = [];
-    const totalCombinations = days.length * 24;
-    let processedCombinations = 0;
-
-    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
-      setCurrentOperation(`Analyzing ${days[buyDayIndex]}...`);
-      
-      for (let buyHour = 0; buyHour < 24; buyHour++) {
-        // Process this combination
-        const results = await processDayHourCombo(buyDayIndex, buyHour, days);
-        allPatterns = [...allPatterns, ...results];
-        
-        // Update progress
-        processedCombinations++;
-        const progress = (processedCombinations / totalCombinations) * 100;
-        setAnalysisProgress(Math.round(progress));
-        
-        // Let UI update
-        await new Promise(resolve => setTimeout(resolve, 0));
-      }
-    }
-
-    // Sort and get top 5
-    return allPatterns
-      .sort((a, b) => {
-        if (b.profitCount !== a.profitCount) {
-          return b.profitCount - a.profitCount;
-        }
-        return parseFloat(b.averageProfit) - parseFloat(a.averageProfit);
-      })
-      .slice(0, 5);
-  };
-
-  // Effect to calculate patterns when visible
-  useEffect(() => {
-    let isMounted = true;
-
-    const calculatePatterns = async () => {
-      if (!isVisible || patterns.length > 0 || !processedData || processedData.length === 0) return;
-      
-      setIsLoading(true);
-      setAnalysisProgress(0);
-      setCurrentOperation('Starting analysis...');
-      
-      try {
-        const newPatterns = await findProfitablePatterns();
-        if (isMounted) {
-          setPatterns(newPatterns);
-        }
-      } catch (error) {
-        console.error('Error calculating patterns:', error);
-      }
-      if (isMounted) {
-        setIsLoading(false);
-        setAnalysisProgress(0);
-        setCurrentOperation('');
-      }
-    };
-
-    calculatePatterns();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isVisible, processedData, patterns.length]);
-
-  if (!processedData || processedData.length === 0) {
-    return null;
-  }
-
-  return (
-    <div style={{
-      background: '#f0f7ff',
-      border: '1px solid #bfdeff',
-      borderRadius: 10,
-      padding: '18px 24px',
-      margin: '24px 0',
-      boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)'
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: isVisible ? 20 : 0
-      }}>
-        <h3 style={{ color: '#1565c0', margin: 0 }}>Top 5 Most Profitable Trading Patterns</h3>
-        <button
-          onClick={() => {
-            setIsVisible(!isVisible);
-            if (!isVisible) {
-              setPatterns([]); // Reset patterns when showing again
-            }
-          }}
-          style={{
-            padding: '8px 16px',
-            background: isVisible ? '#e0e0e0' : '#1976d2',
-            color: isVisible ? '#333' : 'white',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          {isVisible ? 'Hide Patterns' : 'Show Patterns'}
-        </button>
-      </div>
-
-      {isVisible && (
-        <>
-          {isLoading ? (
-            <div style={{
-              padding: '40px 20px',
-              textAlign: 'center',
-              fontSize: 16,
-              color: '#1976d2',
-              background: 'white',
-              borderRadius: 8,
-              margin: '20px 0',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
-              <div className="loading-spinner" style={{
-                border: '4px solid #f3f3f3',
-                borderTop: '4px solid #1976d2',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 15px'
-              }} />
-              <div style={{ marginBottom: '15px' }}>{currentOperation}</div>
-              <div style={{
-                width: '300px',
-                height: '8px',
-                background: '#e0e0e0',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                marginBottom: '10px'
-              }}>
-                <div style={{
-                  width: `${analysisProgress}%`,
-                  height: '100%',
-                  background: '#1976d2',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
-              <div>{analysisProgress}% Complete</div>
-              <style>{`
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
-            </div>
-          ) : (
-            <>
-              {patterns.map((pattern, index) => (
-                <div key={index} style={{ 
-                  marginBottom: 20,
-                  padding: 15,
-                  background: 'white',
-                  borderRadius: 8,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  border: '1px solid #e3f2fd'
-                }}>
-                  <div style={{ 
-                    fontSize: 18, 
-                    fontWeight: 'bold', 
-                    color: '#1976d2',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span>#{index + 1}: Buy {pattern.buyDay} {pattern.buyHour}:00 → Sell {pattern.sellDay} {pattern.sellHour}:00</span>
-                    <span style={{ 
-                      backgroundColor: '#e8f5e9', 
-                      color: '#2e7d32',
-                      padding: '4px 8px',
-                      borderRadius: 4,
-                      fontSize: 14
-                    }}>
-                      {pattern.profitCount} times profitable
-                    </span>
-                  </div>
-                  <div style={{ 
-                    color: '#2e7d32', 
-                    marginTop: 8,
-                    fontSize: 16,
-                    fontWeight: 'bold'
-                  }}>
-                    Average profit per trade: ${pattern.averageProfit} (ROI: {pattern.averageROI}%)
-                  </div>
-                  <div style={{ 
-                    marginTop: 12, 
-                    fontSize: 14,
-                    backgroundColor: '#fafafa',
-                    padding: 10,
-                    borderRadius: 6
-                  }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#333' }}>Recent Successful Trades:</div>
-                    {pattern.instances.slice(-3).map((instance, i) => (
-                      <div key={i} style={{ 
-                        color: '#555', 
-                        marginBottom: 6,
-                        padding: '4px 0',
-                        borderBottom: i < 2 ? '1px solid #eee' : 'none'
-                      }}>
-                        Buy: ${instance.buyPrice} ({instance.buyDate}) → 
-                        Sell: ${instance.sellPrice} ({instance.sellDate}) = 
-                        <span style={{ color: '#2e7d32', fontWeight: 'bold' }}> +${instance.profit}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              
-              <div style={{ 
-                color: '#666', 
-                fontSize: 14, 
-                marginTop: 15,
-                padding: '10px 15px',
-                background: '#fff',
-                borderRadius: 6,
-                border: '1px solid #e0e0e0'
-              }}>
-                <strong>Note:</strong> These patterns are based on {processedData.length} periods of historical data. 
-                Past performance does not guarantee future results. Use this information as one of many factors in your trading decisions.
-              </div>
-            </>
+          
+          {/* Auto-Find Results Section */}
+          {autoFindResults.length > 0 && (
+            <AutoFindResults 
+              results={autoFindResults} 
+              analysisDate={autoFindAnalysisDate}
+            />
           )}
         </>
       )}
+      
+      {/* Auto-Find Modal */}
+      {showAutoFindModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            minWidth: '400px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#1976d2' }}>Auto-Find Trading Patterns</h3>
+            
+            {autoFindLoading ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '20px'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid #f3f3f3',
+                  borderTop: '4px solid #059669',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 15px'
+                }} />
+                <div style={{ marginBottom: '15px', color: '#059669', fontWeight: 'bold' }}>
+                  {autoFindCurrentCoin}
+                </div>
+                <div style={{
+                  width: '300px',
+                  height: '8px',
+                  background: '#e0e0e0',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  margin: '0 auto 10px'
+                }}>
+                  <div style={{
+                    width: `${autoFindProgress}%`,
+                    height: '100%',
+                    background: '#059669',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                <div style={{ color: '#666' }}>{autoFindProgress}% Complete</div>
+              </div>
+            ) : (
+              <>
+                <p style={{ marginBottom: '20px', color: '#666' }}>
+                  Select which day to analyze for profitable trading patterns:
+                </p>
+                
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px' }}>
+                    <input
+                      type="radio"
+                      value="today"
+                      checked={selectedAutoFindDay === 'today'}
+                      onChange={(e) => setSelectedAutoFindDay(e.target.value)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span style={{ fontSize: '16px' }}>Today ({new Date().toLocaleDateString('en-US', { weekday: 'long' })})</span>
+                  </label>
+                  <label style={{ display: 'block' }}>
+                    <input
+                      type="radio"
+                      value="tomorrow"
+                      checked={selectedAutoFindDay === 'tomorrow'}
+                      onChange={(e) => setSelectedAutoFindDay(e.target.value)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span style={{ fontSize: '16px' }}>Tomorrow ({new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'long' })})</span>
+                  </label>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setShowAutoFindModal(false)}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#e0e0e0',
+                      color: '#333',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAutoFindTrade}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Find Patterns
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+  
 };
 
 export default ClosingPriceTable;
