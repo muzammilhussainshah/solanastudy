@@ -37,6 +37,12 @@ const ClosingPriceTable = () => {
     Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0'))
   );
   const [filterMode, setFilterMode] = useState("day"); // "day" or "date" or "hour"
+  
+  // New state for all coins analysis
+  const [allCoinsPatterns, setAllCoinsPatterns] = useState({});
+  const [isAnalyzingAllCoins, setIsAnalyzingAllCoins] = useState(false);
+  const [allCoinsProgress, setAllCoinsProgress] = useState(0);
+  const [currentAnalyzingCoin, setCurrentAnalyzingCoin] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,6 +117,175 @@ const ClosingPriceTable = () => {
 
     fetchData();
   }, [selectedMonths, selectedCoin, selectedStartDate]); // Add selectedStartDate to dependency array
+
+  // Function to analyze patterns for all coins
+  const analyzeAllCoins = async () => {
+    setIsAnalyzingAllCoins(true);
+    setAllCoinsProgress(0);
+    setAllCoinsPatterns({});
+    
+    const allCoins = [
+      'SOLUSDT', 'ETHUSDT', 'XRPUSDT', 'BTCUSDT', 'BCHUSDT', 'LTCUSDT', 'XMRUSDT', 'DAIUSDT', 
+      'AAVEUSDT', 'BNBUSDT', 'TRXUSDT', 'XLMUSDT', 'AVAXUSDT', 'OPUSDT', 'DOGEUSDT', 'LINKUSDT', 
+      'ATOMUSDT', 'ADAUSDT', 'SUIUSDT', 'INJUSDT', 'GRTUSDT', 'HBARUSDT', 'UNIUSDT', 'DOTUSDT', 
+      'TONUSDT', 'TAOUSDT', 'ENAUSDT', 'ONDOUSDT', 'ICPUSDT', 'APTUSDT', 'POLUSDT', 'ALGOUSDT', 'PENGUUSDT'
+    ];
+    
+    const results = {};
+    
+    for (let i = 0; i < allCoins.length; i++) {
+      const coin = allCoins[i];
+      setCurrentAnalyzingCoin(coin);
+      
+      try {
+        // Fetch data for this coin
+        let allData = [];
+        let endTime = undefined;
+        const hoursPerMonth = 730;
+        const totalNeeded = selectedMonths * hoursPerMonth;
+        const maxLimit = 1000;
+        
+        while (allData.length < totalNeeded) {
+          const params = {
+            symbol: coin,
+            interval: '1h',
+            limit: maxLimit,
+          };
+          
+          if (endTime) {
+            params.endTime = endTime;
+          } else if (selectedStartDate) {
+            const startDateTime = new Date(selectedStartDate);
+            startDateTime.setHours(23, 59, 59, 999);
+            params.endTime = startDateTime.getTime();
+          }
+
+          const response = await axios.get('https://api.binance.com/api/v3/klines', { params });
+          const data = response.data;
+
+          if (!data.length) break;
+
+          allData = [...data, ...allData];
+          endTime = data[0][0] - 1;
+
+          await new Promise(res => setTimeout(res, 300));
+        }
+
+        // Process data for this coin
+        const combinedData = allData.slice(-totalNeeded);
+        const processed = await processDataInChunks(combinedData);
+        
+        // Calculate patterns for this coin
+        const patterns = await calculatePatternsForCoin(processed);
+        results[coin] = patterns;
+        
+      } catch (error) {
+        console.error(`Error analyzing ${coin}:`, error);
+        results[coin] = [];
+      }
+      
+      // Update progress
+      const progress = ((i + 1) / allCoins.length) * 100;
+      setAllCoinsProgress(Math.round(progress));
+      
+      // Small delay to prevent rate limiting
+      await new Promise(res => setTimeout(res, 100));
+    }
+    
+    setAllCoinsPatterns(results);
+    setIsAnalyzingAllCoins(false);
+    setCurrentAnalyzingCoin('');
+    setAllCoinsProgress(0);
+  };
+
+  // Helper function to calculate patterns for a specific coin
+  const calculatePatternsForCoin = async (processedData) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let allPatterns = [];
+
+    // Function to get day and hour from a data point
+    const getDayHour = (dataPoint) => {
+      const [day, date, time] = dataPoint.compactTime.split(", ");
+      const hour = time.split(":")[0];
+      return { day, hour };
+    };
+
+    // Process a single day-hour combination
+    const processDayHourCombo = async (buyDayIndex, buyHour, days) => {
+      const results = [];
+      for (let sellDayIndex = 0; sellDayIndex < days.length; sellDayIndex++) {
+        for (let sellHour = 0; sellHour < 24; sellHour++) {
+          if (buyDayIndex === sellDayIndex && sellHour <= buyHour) continue;
+          
+          let profitCount = 0;
+          let totalProfit = 0;
+          let totalBuyPrice = 0;
+          let instances = [];
+
+          for (let i = 0; i < processedData.length - 1; i++) {
+            const buyPoint = getDayHour(processedData[i]);
+            if (buyPoint.day === days[buyDayIndex] && buyPoint.hour === buyHour.toString().padStart(2, '0')) {
+              for (let j = i + 1; j < processedData.length; j++) {
+                const sellPoint = getDayHour(processedData[j]);
+                if (sellPoint.day === days[sellDayIndex] && sellPoint.hour === sellHour.toString().padStart(2, '0')) {
+                  const buyPrice = parseFloat(processedData[i].closingPrice);
+                  const sellPrice = parseFloat(processedData[j].closingPrice);
+                  const profit = sellPrice - buyPrice;
+                  
+                  if (profit > 0) {
+                    profitCount++;
+                    totalProfit += profit;
+                    totalBuyPrice += buyPrice;
+                    instances.push({
+                      buyDate: processedData[i].compactTime,
+                      sellDate: processedData[j].compactTime,
+                      buyPrice: buyPrice.toFixed(2),
+                      sellPrice: sellPrice.toFixed(2),
+                      profit: profit.toFixed(2)
+                    });
+                  }
+                  break;
+                }
+              }
+            }
+          }
+
+          if (profitCount >= 3) {
+            const avgProfit = totalProfit / profitCount;
+            const avgBuyPrice = totalBuyPrice / profitCount;
+            results.push({
+              buyDay: days[buyDayIndex],
+              buyHour: buyHour.toString().padStart(2, '0'),
+              sellDay: days[sellDayIndex],
+              sellHour: sellHour.toString().padStart(2, '0'),
+              profitCount,
+              averageProfit: avgProfit.toFixed(2),
+              averageROI: ((avgProfit / avgBuyPrice) * 100).toFixed(2),
+              instances
+            });
+          }
+        }
+      }
+      return results;
+    };
+
+    for (let buyDayIndex = 0; buyDayIndex < days.length; buyDayIndex++) {
+      for (let buyHour = 0; buyHour < 24; buyHour++) {
+        const results = await processDayHourCombo(buyDayIndex, buyHour, days);
+        allPatterns = [...allPatterns, ...results];
+      }
+    }
+
+    // Sort and get top 5
+    return allPatterns
+      .sort((a, b) => {
+        if (b.profitCount !== a.profitCount) {
+          return b.profitCount - a.profitCount;
+        }
+        return parseFloat(b.averageProfit) - parseFloat(a.averageProfit);
+      })
+      .slice(0, 5);
+  };
 
   // Process data in chunks to prevent UI freezing
   const processDataInChunks = async (data) => {
@@ -354,6 +529,100 @@ const ClosingPriceTable = () => {
             </div>
           </div>
         </div>
+        
+        {/* Analyze All Coins Button */}
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "center", 
+          marginTop: "20px",
+          marginBottom: "20px"
+        }}>
+          <button
+            onClick={analyzeAllCoins}
+            disabled={isAnalyzingAllCoins}
+            style={{
+              padding: '12px 24px',
+              background: isAnalyzingAllCoins ? '#e0e0e0' : '#1976d2',
+              color: isAnalyzingAllCoins ? '#666' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: isAnalyzingAllCoins ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
+              transition: 'all 0.3s ease',
+              minWidth: '200px'
+            }}
+            onMouseOver={e => {
+              if (!isAnalyzingAllCoins) {
+                e.currentTarget.style.background = '#1565c0';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(25, 118, 210, 0.3)';
+              }
+            }}
+            onMouseOut={e => {
+              if (!isAnalyzingAllCoins) {
+                e.currentTarget.style.background = '#1976d2';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(25, 118, 210, 0.2)';
+              }
+            }}
+          >
+            {isAnalyzingAllCoins ? (
+              <>
+                <div style={{
+                  display: 'inline-block',
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid #fff',
+                  borderTop: '2px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '8px'
+                }} />
+                Analyzing All Coins ({allCoinsProgress}%)
+              </>
+            ) : (
+              '🔍 Analyze All Coins'
+            )}
+          </button>
+        </div>
+        
+        {isAnalyzingAllCoins && (
+          <div style={{
+            textAlign: 'center',
+            padding: '20px',
+            background: '#f0f7ff',
+            borderRadius: '8px',
+            margin: '20px 0',
+            border: '1px solid #bfdeff'
+          }}>
+            <div style={{ 
+              fontSize: '18px', 
+              color: '#1976d2', 
+              marginBottom: '10px',
+              fontWeight: 'bold'
+            }}>
+              Currently analyzing: {currentAnalyzingCoin}
+            </div>
+            <div style={{
+              width: '100%',
+              height: '8px',
+              background: '#e0e0e0',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              marginBottom: '10px'
+            }}>
+              <div style={{
+                width: `${allCoinsProgress}%`,
+                height: '100%',
+                background: '#1976d2',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <div style={{ color: '#666', fontSize: '14px' }}>
+              Progress: {allCoinsProgress}% Complete
+            </div>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -716,10 +985,164 @@ const ClosingPriceTable = () => {
           <div className="pattern-section">
             <ProfitablePatterns processedData={processedData} />
           </div>
+
+          {/* All Coins Analysis Results */}
+          {Object.keys(allCoinsPatterns).length > 0 && (
+            <div style={{
+              marginTop: '40px',
+              padding: '30px',
+              background: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h2 style={{
+                color: '#1e293b',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                marginBottom: '20px',
+                textAlign: 'center'
+              }}>
+                📊 All Coins Trading Patterns Analysis
+              </h2>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: '20px'
+              }}>
+                {Object.entries(allCoinsPatterns).map(([coin, patterns]) => (
+                  <div key={coin} style={{
+                    background: 'white',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <h3 style={{
+                      color: '#1976d2',
+                      fontSize: '18px',
+                      fontWeight: 'bold',
+                      marginBottom: '15px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      {getCoinDisplayName(coin)}
+                      <span style={{
+                        backgroundColor: patterns.length > 0 ? '#e8f5e9' : '#ffebee',
+                        color: patterns.length > 0 ? '#2e7d32' : '#c62828',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {patterns.length} patterns
+                      </span>
+                    </h3>
+                    
+                    {patterns.length > 0 ? (
+                      <div>
+                        {patterns.map((pattern, index) => (
+                          <div key={index} style={{
+                            marginBottom: '12px',
+                            padding: '10px',
+                            background: '#f8f9fa',
+                            borderRadius: '6px',
+                            border: '1px solid #e9ecef'
+                          }}>
+                            <div style={{
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              color: '#495057',
+                              marginBottom: '4px'
+                            }}>
+                              #{index + 1}: Buy {pattern.buyDay} {pattern.buyHour}:00 → Sell {pattern.sellDay} {pattern.sellHour}:00
+                            </div>
+                            <div style={{
+                              color: '#2e7d32',
+                              fontSize: '13px',
+                              fontWeight: 'bold'
+                            }}>
+                              ${pattern.averageProfit} avg profit ({pattern.averageROI}% ROI) - {pattern.profitCount} times profitable
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{
+                        color: '#666',
+                        fontSize: '14px',
+                        fontStyle: 'italic',
+                        textAlign: 'center',
+                        padding: '20px'
+                      }}>
+                        No profitable patterns found for this coin
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{
+                marginTop: '30px',
+                padding: '15px',
+                background: '#fff',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center'
+              }}>
+                <div style={{ color: '#64748b', fontSize: '14px' }}>
+                  <strong>Analysis Summary:</strong> Analyzed {Object.keys(allCoinsPatterns).length} coins with {selectedMonths} month{selectedMonths !== 1 ? 's' : ''} of data each.
+                  <br />
+                  Patterns shown are based on historical data and do not guarantee future results.
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
   );
+};
+
+// Helper function to get coin display name
+const getCoinDisplayName = (coinSymbol) => {
+  const coinNames = {
+    'SOLUSDT': 'Solana (SOL)',
+    'ETHUSDT': 'Ethereum (ETH)',
+    'XRPUSDT': 'XRP (XRP)',
+    'BTCUSDT': 'Bitcoin (BTC)',
+    'BCHUSDT': 'Bitcoin Cash (BCH)',
+    'LTCUSDT': 'Litecoin (LTC)',
+    'XMRUSDT': 'Monero (XMR)',
+    'DAIUSDT': 'Dai (DAI)',
+    'AAVEUSDT': 'Aave (AAVE)',
+    'BNBUSDT': 'Binance Coin (BNB)',
+    'TRXUSDT': 'Tron (TRX)',
+    'XLMUSDT': 'Stellar (XLM)',
+    'AVAXUSDT': 'Avalanche (AVAX)',
+    'OPUSDT': 'Optimism (OP)',
+    'DOGEUSDT': 'Dogecoin (DOGE)',
+    'LINKUSDT': 'Chainlink (LINK)',
+    'ATOMUSDT': 'Cosmos (ATOM)',
+    'ADAUSDT': 'Cardano (ADA)',
+    'SUIUSDT': 'Sui (SUI)',
+    'INJUSDT': 'Injective (INJ)',
+    'GRTUSDT': 'The Graph (GRT)',
+    'HBARUSDT': 'Hedera (HBAR)',
+    'UNIUSDT': 'Uniswap (UNI)',
+    'DOTUSDT': 'Polkadot (DOT)',
+    'TONUSDT': 'Toncoin (TON)',
+    'TAOUSDT': 'Bittensor (TAO)',
+    'ENAUSDT': 'Ethena (ENA)',
+    'ONDOUSDT': 'Ondo (ONDO)',
+    'ICPUSDT': 'Internet Computer (ICP)',
+    'APTUSDT': 'Aptos (APT)',
+    'POLUSDT': 'Polygon (POL)',
+    'ALGOUSDT': 'Algorand (ALGO)',
+    'PENGUUSDT': 'Pudgy Penguins (PENGU)'
+  };
+  return coinNames[coinSymbol] || coinSymbol;
 };
 
 // ProfitablePatterns: Analyzes trading data to find most profitable day-hour combinations
