@@ -452,54 +452,60 @@ const ClosingPriceTable = () => {
     <div className="trading-container">
       {/* Coin and Month Selector Dropdowns */}
       <div className="control-panel">
-        <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <label className="modern-label">Select Coin:</label>
-            <select
-              value={selectedCoin}
-              onChange={(e) => {
-                setSelectedCoin(e.target.value);
-                setLoading(true);
-              }}
-              className="modern-select"
-            >
-                          <option value="SOLUSDT">Solana (SOL)</option>
-            <option value="ETHUSDT">Ethereum (ETH)</option>
-            <option value="XRPUSDT">XRP (XRP)</option>
-            <option value="BTCUSDT">Bitcoin (BTC)</option>
-            <option value="BCHUSDT">Bitcoin Cash (BCH)</option>
-            <option value="LTCUSDT">Litecoin (LTC)</option>
-            <option value="XMRUSDT">Monero (XMR)</option>
-            <option value="DAIUSDT">Dai (DAI)</option>
-            <option value="AAVEUSDT">Aave (AAVE)</option>
-            <option value="BNBUSDT">Binance Coin (BNB)</option>
-            <option value="TRXUSDT">Tron (TRX)</option>
-            <option value="XLMUSDT">Stellar (XLM)</option>
-            <option value="AVAXUSDT">Avalanche (AVAX)</option>
-            <option value="OPUSDT">Optimism (OP)</option>
-            <option value="DOGEUSDT">Dogecoin (DOGE)</option>
-            <option value="LINKUSDT">Chainlink (LINK)</option>
-            <option value="ATOMUSDT">Cosmos (ATOM)</option>
-            <option value="ADAUSDT">Cardano (ADA)</option>
-            <option value="SUIUSDT">Sui (SUI)</option>
-            <option value="INJUSDT">Injective (INJ)</option>
-            <option value="GRTUSDT">The Graph (GRT)</option>
-            <option value="HBARUSDT">Hedera (HBAR)</option>
-            <option value="UNIUSDT">Uniswap (UNI)</option>
-            <option value="DOTUSDT">Polkadot (DOT)</option>
-            <option value="TONUSDT">Toncoin (TON)</option>
-            <option value="TAOUSDT">Bittensor (TAO)</option>
-            <option value="ENAUSDT">Ethena (ENA)</option>
-            <option value="ONDOUSDT">Ondo (ONDO)</option>
-            <option value="ICPUSDT">Internet Computer (ICP)</option>
-            <option value="APTUSDT">Aptos (APT)</option>
-            <option value="POLUSDT">Polygon (POL)</option>
-            <option value="ALGOUSDT">Algorand (ALGO)</option>
-            <option value="PENGUUSDT">Pudgy Penguins (PENGU)</option>
-            </select>
-          </div>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "20px", 
+          flexWrap: "wrap",
+          justifyContent: "space-between"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <label className="modern-label">Select Coin:</label>
+              <select
+                value={selectedCoin}
+                onChange={(e) => {
+                  setSelectedCoin(e.target.value);
+                  setLoading(true);
+                }}
+                className="modern-select"
+              >
+                <option value="SOLUSDT">Solana (SOL)</option>
+                <option value="ETHUSDT">Ethereum (ETH)</option>
+                <option value="XRPUSDT">XRP (XRP)</option>
+                <option value="BTCUSDT">Bitcoin (BTC)</option>
+                <option value="BCHUSDT">Bitcoin Cash (BCH)</option>
+                <option value="LTCUSDT">Litecoin (LTC)</option>
+                <option value="XMRUSDT">Monero (XMR)</option>
+                <option value="DAIUSDT">Dai (DAI)</option>
+                <option value="AAVEUSDT">Aave (AAVE)</option>
+                <option value="BNBUSDT">Binance Coin (BNB)</option>
+                <option value="TRXUSDT">Tron (TRX)</option>
+                <option value="XLMUSDT">Stellar (XLM)</option>
+                <option value="AVAXUSDT">Avalanche (AVAX)</option>
+                <option value="OPUSDT">Optimism (OP)</option>
+                <option value="DOGEUSDT">Dogecoin (DOGE)</option>
+                <option value="LINKUSDT">Chainlink (LINK)</option>
+                <option value="ATOMUSDT">Cosmos (ATOM)</option>
+                <option value="ADAUSDT">Cardano (ADA)</option>
+                <option value="SUIUSDT">Sui (SUI)</option>
+                <option value="INJUSDT">Injective (INJ)</option>
+                <option value="GRTUSDT">The Graph (GRT)</option>
+                <option value="HBARUSDT">Hedera (HBAR)</option>
+                <option value="UNIUSDT">Uniswap (UNI)</option>
+                <option value="DOTUSDT">Polkadot (DOT)</option>
+                <option value="TONUSDT">Toncoin (TON)</option>
+                <option value="TAOUSDT">Bittensor (TAO)</option>
+                <option value="ENAUSDT">Ethena (ENA)</option>
+                <option value="ONDOUSDT">Ondo (ONDO)</option>
+                <option value="ICPUSDT">Internet Computer (ICP)</option>
+                <option value="APTUSDT">Aptos (APT)</option>
+                <option value="POLUSDT">Polygon (POL)</option>
+                <option value="ALGOUSDT">Algorand (ALGO)</option>
+                <option value="PENGUUSDT">Pudgy Penguins (PENGU)</option>
+              </select>
+            </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
               <label className="modern-label">Select Data Range:</label>
               <select
@@ -531,15 +537,8 @@ const ClosingPriceTable = () => {
               />
             </div>
           </div>
-        </div>
-        
-        {/* Analyze All Coins Button */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          marginTop: "20px",
-          marginBottom: "20px"
-        }}>
+          
+          {/* Analyze All Coins Button */}
           <button
             onClick={analyzeAllCoins}
             disabled={isAnalyzingAllCoins}
@@ -554,7 +553,8 @@ const ClosingPriceTable = () => {
               cursor: isAnalyzingAllCoins ? 'not-allowed' : 'pointer',
               boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
               transition: 'all 0.3s ease',
-              minWidth: '200px'
+              minWidth: '200px',
+              whiteSpace: 'nowrap'
             }}
             onMouseOver={e => {
               if (!isAnalyzingAllCoins) {
