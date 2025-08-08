@@ -10,6 +10,20 @@ const CoinMarketCapList = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingPhase, setLoadingPhase] = useState('');
   const [marketCapFilter, setMarketCapFilter] = useState('all'); // 'all', '1b', '10b'
+  const [selectedCoin, setSelectedCoin] = useState(null);
+  const [showRSIModal, setShowRSIModal] = useState(false);
+  const [rsiModalData, setRsiModalData] = useState(null);
+  const [rsiModalLoading, setRsiModalLoading] = useState(false);
+  const [isAnalyzingDowntrend, setIsAnalyzingDowntrend] = useState(false);
+  const [downtrendProgress, setDowntrendProgress] = useState(0);
+  const [downtrendResults, setDowntrendResults] = useState([]);
+  const [showDowntrendResults, setShowDowntrendResults] = useState(false);
+  const [useMACDConfirmation, setUseMACDConfirmation] = useState(false);
+  const [isAnalyzingUptrend, setIsAnalyzingUptrend] = useState(false);
+  const [uptrendProgress, setUptrendProgress] = useState(0);
+  const [uptrendResults, setUptrendResults] = useState([]);
+  const [showUptrendResults, setShowUptrendResults] = useState(false);
+  const [currentAnalyzingCoin, setCurrentAnalyzingCoin] = useState('');
 
   // Fetch CoinMarketCap Data
   const fetchCoinMarketCapData = async () => {
@@ -234,6 +248,330 @@ const CoinMarketCapList = () => {
 
   const filteredCoins = getFilteredCoins();
 
+  // RSI Calculation Function (reused from RSI tab)
+  const calculateRSI = (prices, period = 14) => {
+    if (prices.length < period + 1) return null;
+    
+    let gains = [];
+    let losses = [];
+    
+    // Calculate price changes
+    for (let i = 1; i < prices.length; i++) {
+      const change = prices[i] - prices[i - 1];
+      gains.push(change > 0 ? change : 0);
+      losses.push(change < 0 ? Math.abs(change) : 0);
+    }
+    
+    if (gains.length < period) return null;
+    
+    // Calculate initial average gain and loss
+    let avgGain = gains.slice(0, period).reduce((sum, gain) => sum + gain, 0) / period;
+    let avgLoss = losses.slice(0, period).reduce((sum, loss) => sum + loss, 0) / period;
+    
+    // For the first RSI calculation
+    if (gains.length === period) {
+      if (avgLoss === 0) return 100;
+      const rs = avgGain / avgLoss;
+      return 100 - (100 / (1 + rs));
+    }
+    
+    // Calculate RSI using Wilder's smoothing for subsequent periods
+    for (let i = period; i < gains.length; i++) {
+      avgGain = ((avgGain * (period - 1)) + gains[i]) / period;
+      avgLoss = ((avgLoss * (period - 1)) + losses[i]) / period;
+    }
+    
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  };
+
+  // EMA Calculation Helper
+  const calculateEMA = (prices, period) => {
+    if (!prices || prices.length < period) return [];
+    const multiplier = 2 / (period + 1);
+    const emaArray = new Array(prices.length).fill(null);
+    // Initial SMA for first EMA seed
+    const initialSMA = prices.slice(0, period).reduce((sum, p) => sum + p, 0) / period;
+    emaArray[period - 1] = initialSMA;
+    for (let i = period; i < prices.length; i++) {
+      const prevEma = emaArray[i - 1] ?? initialSMA;
+      emaArray[i] = (prices[i] - prevEma) * multiplier + prevEma;
+    }
+    return emaArray;
+  };
+
+  // MACD Calculation (12, 26, 9 by default). Returns last values and series
+  const calculateMACD = (prices, shortPeriod = 12, longPeriod = 26, signalPeriod = 9) => {
+    if (!prices || prices.length < longPeriod + signalPeriod) {
+      return { macd: null, signal: null, histogram: null, macdSeries: [], signalSeries: [], histogramSeries: [] };
+    }
+    const emaShort = calculateEMA(prices, shortPeriod);
+    const emaLong = calculateEMA(prices, longPeriod);
+
+    const macdSeries = prices.map((_, i) => {
+      if (emaShort[i] == null || emaLong[i] == null) return null;
+      return emaShort[i] - emaLong[i];
+    });
+
+    // Build compact series for signal EMA (skip nulls at the start)
+    const macdValues = macdSeries.filter(v => v != null);
+    const signalCompact = calculateEMA(macdValues, signalPeriod);
+
+    // Map compact signal back to full-length aligned with last non-null macd index
+    const firstMacdIndex = macdSeries.findIndex(v => v != null);
+    const signalSeries = new Array(prices.length).fill(null);
+    for (let i = 0; i < signalCompact.length; i++) {
+      const idx = firstMacdIndex + signalPeriod - 1 + i; // signal starts after seed
+      if (idx < signalSeries.length) {
+        signalSeries[idx] = signalCompact[i + signalPeriod - 1] ?? signalCompact[i];
+      }
+    }
+
+    const histogramSeries = prices.map((_, i) => {
+      if (macdSeries[i] == null || signalSeries[i] == null) return null;
+      return macdSeries[i] - signalSeries[i];
+    });
+
+    // Get last valid values (previous closed candle assumed handled by caller)
+    let lastIndex = prices.length - 1;
+    while (lastIndex >= 0 && (macdSeries[lastIndex] == null || signalSeries[lastIndex] == null)) {
+      lastIndex--;
+    }
+    const macd = lastIndex >= 0 ? macdSeries[lastIndex] : null;
+    const signal = lastIndex >= 0 ? signalSeries[lastIndex] : null;
+    const histogram = lastIndex >= 0 ? histogramSeries[lastIndex] : null;
+
+    return { macd, signal, histogram, macdSeries, signalSeries, histogramSeries };
+  };
+
+  // Fetch RSI data for selected coin
+  const fetchCoinRSI = async (coinSymbol) => {
+    try {
+      setRsiModalLoading(true);
+      setRsiModalData(null);
+      
+      // Convert symbol to Binance format (ensure USDT pair)
+      const symbol = coinSymbol.toUpperCase() + 'USDT';
+      
+      const response = await axios.get('https://api.binance.com/api/v3/klines', {
+        params: {
+          symbol: symbol,
+          interval: '1h',
+          limit: 100
+        }
+      });
+      
+      const data = response.data;
+      const closePrices = data.map(candle => parseFloat(candle[4]));
+      const previousClosePrices = closePrices.slice(0, -1);
+      
+      // Calculate RSI on last CLOSED candle (previous hour)
+      const currentRSI = calculateRSI(previousClosePrices);
+      const currentPrice = closePrices[closePrices.length - 2];
+
+      // MACD for modal (previous closed)
+      const { macd, signal, histogram } = calculateMACD(previousClosePrices);
+      
+      // Calculate RSI history for last 12 hours
+      const historicalRSI = [];
+      for (let i = 14; i < data.length; i++) {
+        const pricesUpToThisPoint = data.slice(0, i + 1).map(candle => parseFloat(candle[4]));
+        const rsiValue = calculateRSI(pricesUpToThisPoint);
+        const utcTime = new Date(data[i][0]);
+        const karachiTime = new Date(utcTime.getTime() + (5 * 60 * 60 * 1000));
+        const timeStr = karachiTime.toISOString().split('T')[1].split(':').slice(0, 2).join(':');
+        
+        if (rsiValue && rsiValue > 0) {
+          historicalRSI.push({
+            time: karachiTime,
+            price: parseFloat(data[i][4]),
+            rsi: rsiValue,
+            formattedTime: timeStr + ' PKT'
+          });
+        }
+      }
+      
+      setRsiModalData({
+        symbol: coinSymbol,
+        currentRSI: currentRSI,
+        currentPrice: currentPrice,
+        macd,
+        macdSignal: signal,
+        macdHistogram: histogram,
+        historicalData: historicalRSI.slice(-12),
+        change24h: data.length >= 26 ? ((currentPrice - parseFloat(data[data.length - 26][4])) / parseFloat(data[data.length - 26][4])) * 100 : 0
+      });
+      
+      setRsiModalLoading(false);
+    } catch (err) {
+      console.error('RSI fetch error for', coinSymbol, ':', err);
+      setRsiModalData({
+        error: 'Failed to fetch RSI data for ' + coinSymbol,
+        symbol: coinSymbol
+      });
+      setRsiModalLoading(false);
+    }
+  };
+
+  // Handle coin click to show RSI modal
+  const handleCoinClick = (coin) => {
+    setSelectedCoin(coin);
+    setShowRSIModal(true);
+    fetchCoinRSI(coin.symbol);
+  };
+
+  // Get RSI status and color
+  const getRSIStatus = (rsi) => {
+    if (rsi >= 70) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
+    if (rsi <= 30) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
+    return { status: 'Neutral', color: '#3b82f6', bgColor: '#eff6ff' };
+  };
+
+  // Analyze downtrend for all filtered coins
+  const analyzeDowntrend = async () => {
+    setIsAnalyzingDowntrend(true);
+    setDowntrendProgress(0);
+    setDowntrendResults([]);
+    setShowDowntrendResults(false);
+    setCurrentAnalyzingCoin('');
+
+    const coinsToAnalyze = filteredCoins;
+    const oversoldCoins = [];
+    
+    for (let i = 0; i < coinsToAnalyze.length; i++) {
+      const coin = coinsToAnalyze[i];
+      setCurrentAnalyzingCoin(coin.name);
+      
+      try {
+        // Convert symbol to Binance format
+        const symbol = coin.symbol.toUpperCase() + 'USDT';
+        
+        const response = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: symbol,
+            interval: '1h',
+            limit: 100
+          }
+        });
+        
+        const data = response.data;
+        const closePrices = data.map(candle => parseFloat(candle[4]));
+        const previousClosePrices = closePrices.slice(0, -1);
+        
+        // Calculate RSI on last CLOSED candle (previous hour)
+        const currentRSI = calculateRSI(previousClosePrices);
+        const currentPrice = closePrices[closePrices.length - 2];
+        
+        // MACD (previous closed candle)
+        const { macd, signal, histogram } = calculateMACD(previousClosePrices);
+        
+        // Check if RSI is below 35 (oversold/downtrend)
+        const rsiCondition = currentRSI && currentRSI < 35;
+        const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd < signal);
+        if (rsiCondition && macdOk) {
+          oversoldCoins.push({
+            ...coin,
+            rsi: currentRSI,
+            currentPrice: currentPrice,
+            rsiStatus: getRSIStatus(currentRSI),
+            macd,
+            macdSignal: signal,
+            macdHistogram: histogram
+          });
+        }
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error) {
+        console.error(`Failed to fetch RSI for ${coin.symbol}:`, error);
+        // Continue with next coin even if one fails
+      }
+      
+      // Update progress
+      const progress = Math.round(((i + 1) / coinsToAnalyze.length) * 100);
+      setDowntrendProgress(progress);
+    }
+    
+    setDowntrendResults(oversoldCoins);
+    setShowDowntrendResults(true);
+    setIsAnalyzingDowntrend(false);
+    setCurrentAnalyzingCoin('');
+  };
+
+  // Analyze uptrend for all filtered coins
+  const analyzeUptrend = async () => {
+    setIsAnalyzingUptrend(true);
+    setUptrendProgress(0);
+    setUptrendResults([]);
+    setShowUptrendResults(false);
+    setCurrentAnalyzingCoin('');
+
+    const coinsToAnalyze = filteredCoins;
+    const overboughtCoins = [];
+    
+    for (let i = 0; i < coinsToAnalyze.length; i++) {
+      const coin = coinsToAnalyze[i];
+      setCurrentAnalyzingCoin(coin.name);
+      
+      try {
+        // Convert symbol to Binance format
+        const symbol = coin.symbol.toUpperCase() + 'USDT';
+        
+        const response = await axios.get('https://api.binance.com/api/v3/klines', {
+          params: {
+            symbol: symbol,
+            interval: '1h',
+            limit: 100
+          }
+        });
+        
+        const data = response.data;
+        const closePrices = data.map(candle => parseFloat(candle[4]));
+        const previousClosePrices = closePrices.slice(0, -1);
+        
+        // Calculate RSI on last CLOSED candle (previous hour)
+        const currentRSI = calculateRSI(previousClosePrices);
+        const currentPrice = closePrices[closePrices.length - 2];
+        
+        // MACD (previous closed candle)
+        const { macd, signal, histogram } = calculateMACD(previousClosePrices);
+        
+        // Check if RSI is above 62 (overbought/uptrend)
+        const rsiCondition = currentRSI && currentRSI > 62;
+        const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd > signal);
+        if (rsiCondition && macdOk) {
+          overboughtCoins.push({
+            ...coin,
+            rsi: currentRSI,
+            currentPrice: currentPrice,
+            rsiStatus: getRSIStatus(currentRSI),
+            macd,
+            macdSignal: signal,
+            macdHistogram: histogram
+          });
+        }
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error) {
+        console.error(`Failed to fetch RSI for ${coin.symbol}:`, error);
+        // Continue with next coin even if one fails
+      }
+      
+      // Update progress
+      const progress = Math.round(((i + 1) / coinsToAnalyze.length) * 100);
+      setUptrendProgress(progress);
+    }
+    
+    setUptrendResults(overboughtCoins);
+    setShowUptrendResults(true);
+    setIsAnalyzingUptrend(false);
+    setCurrentAnalyzingCoin('');
+  };
+
   if (loading) {
     return (
       <div className="trading-container">
@@ -332,6 +670,48 @@ const CoinMarketCapList = () => {
             10B+ Market Cap
           </button>
           <button 
+            onClick={analyzeDowntrend}
+            disabled={isAnalyzingDowntrend || isAnalyzingUptrend || loading}
+            className="analyze-button"
+            style={{
+              padding: '0.5rem 1rem',
+              background: isAnalyzingDowntrend ? '#64748b' : '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: (isAnalyzingDowntrend || isAnalyzingUptrend) ? 'not-allowed' : 'pointer',
+              fontSize: '0.875rem',
+              marginRight: '0.5rem'
+            }}
+          >
+            {isAnalyzingDowntrend ? 'Analyzing...' : 'Analyze Downtrend'}
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              checked={useMACDConfirmation}
+              onChange={(e) => setUseMACDConfirmation(e.target.checked)}
+            />
+            <span>Use MACD confirmation</span>
+          </label>
+          <button 
+            onClick={analyzeUptrend}
+            disabled={isAnalyzingUptrend || isAnalyzingDowntrend || loading}
+            className="analyze-button"
+            style={{
+              padding: '0.5rem 1rem',
+              background: isAnalyzingUptrend ? '#64748b' : '#dc2626',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: (isAnalyzingUptrend || isAnalyzingDowntrend) ? 'not-allowed' : 'pointer',
+              fontSize: '0.875rem',
+              marginRight: '0.5rem'
+            }}
+          >
+            {isAnalyzingUptrend ? 'Analyzing...' : 'Analyze Uptrend'}
+          </button>
+          <button 
             onClick={fetchCoinMarketCapData}
             className="refresh-button"
             style={{
@@ -348,6 +728,188 @@ const CoinMarketCapList = () => {
           </button>
         </div>
       </div>
+
+      {/* Downtrend Analysis Progress */}
+      {isAnalyzingDowntrend && (
+        <div className="downtrend-analysis-progress">
+          <h3>Analyzing Downtrend (RSI &lt; 35)</h3>
+          <div className="analysis-info">
+            <div>Checking RSI for each coin...</div>
+            <div className="current-analyzing">
+              Currently analyzing: <strong>{currentAnalyzingCoin}</strong>
+            </div>
+          </div>
+          <div className="progress-container">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill"
+                style={{ width: `${downtrendProgress}%` }}
+              ></div>
+            </div>
+            <div className="progress-text">{downtrendProgress}%</div>
+          </div>
+        </div>
+      )}
+
+      {/* Uptrend Analysis Progress */}
+      {isAnalyzingUptrend && (
+        <div className="uptrend-analysis-progress">
+          <h3>Analyzing Uptrend (RSI &gt; 62)</h3>
+          <div className="analysis-info">
+            <div>Checking RSI for each coin...</div>
+            <div className="current-analyzing">
+              Currently analyzing: <strong>{currentAnalyzingCoin}</strong>
+            </div>
+          </div>
+          <div className="progress-container">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill uptrend"
+                style={{ width: `${uptrendProgress}%` }}
+              ></div>
+            </div>
+            <div className="progress-text">{uptrendProgress}%</div>
+          </div>
+        </div>
+      )}
+
+      {/* Downtrend Results */}
+      {showDowntrendResults && (
+        <div className="downtrend-results">
+          <div className="results-header">
+            <h3>Downtrend Analysis Results</h3>
+            <div className="results-info">
+              Found <strong>{downtrendResults.length}</strong> coins with RSI below 35 (Oversold)
+            </div>
+            <button 
+              onClick={() => setShowDowntrendResults(false)}
+              className="close-results"
+              style={{
+                background: '#64748b',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+            >
+              Close Results
+            </button>
+          </div>
+          
+          {downtrendResults.length > 0 ? (
+            <div className="results-grid">
+              {downtrendResults.map((coin, index) => (
+                <div key={coin.id} className="result-item">
+                  <div className="result-header">
+                    <div className="coin-rank">#{coin.cmc_rank}</div>
+                    <div className="coin-info">
+                      <div className="coin-name">{coin.name}</div>
+                      <div className="coin-symbol">{coin.symbol}</div>
+                    </div>
+                  </div>
+                    <div className="rsi-info">
+                    <div className="rsi-value oversold">
+                      RSI: {coin.rsi.toFixed(2)}
+                    </div>
+                    <div className="rsi-status">
+                      {coin.rsiStatus.status}
+                    </div>
+                      {coin.macd != null && coin.macdSignal != null && (
+                        <div className="macd-inline" style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#64748b' }}>
+                          MACD: {coin.macd.toFixed(3)} | Signal: {coin.macdSignal.toFixed(3)} | Hist: {coin.macdHistogram?.toFixed(3)}
+                        </div>
+                      )}
+                    {coin.currentPrice && (
+                      <div className="current-price">
+                        ${coin.currentPrice.toFixed(4)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="opportunity-indicator">
+                    🔥 Potential Buy Opportunity
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="no-results">
+              <p>No coins found with RSI below 35.</p>
+              <p>All analyzed coins are currently above the oversold threshold.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Uptrend Results */}
+      {showUptrendResults && (
+        <div className="uptrend-results">
+          <div className="results-header">
+            <h3>Uptrend Analysis Results</h3>
+            <div className="results-info">
+              Found <strong>{uptrendResults.length}</strong> coins with RSI above 62 (Overbought)
+            </div>
+            <button 
+              onClick={() => setShowUptrendResults(false)}
+              className="close-results"
+              style={{
+                background: '#64748b',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+            >
+              Close Results
+            </button>
+          </div>
+          
+          {uptrendResults.length > 0 ? (
+            <div className="results-grid">
+              {uptrendResults.map((coin, index) => (
+                <div key={coin.id} className="result-item uptrend">
+                  <div className="result-header">
+                    <div className="coin-rank">#{coin.cmc_rank}</div>
+                    <div className="coin-info">
+                      <div className="coin-name">{coin.name}</div>
+                      <div className="coin-symbol">{coin.symbol}</div>
+                    </div>
+                  </div>
+                  <div className="rsi-info">
+                    <div className="rsi-value overbought">
+                      RSI: {coin.rsi.toFixed(2)}
+                    </div>
+                    <div className="rsi-status">
+                      {coin.rsiStatus.status}
+                    </div>
+                    {coin.macd != null && coin.macdSignal != null && (
+                      <div className="macd-inline" style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#64748b' }}>
+                        MACD: {coin.macd.toFixed(3)} | Signal: {coin.macdSignal.toFixed(3)} | Hist: {coin.macdHistogram?.toFixed(3)}
+                      </div>
+                    )}
+                    {coin.currentPrice && (
+                      <div className="current-price">
+                        ${coin.currentPrice.toFixed(4)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="opportunity-indicator uptrend">
+                    📈 Potential Sell Opportunity
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="no-results">
+              <p>No coins found with RSI above 62.</p>
+              <p>All analyzed coins are currently below the overbought threshold.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Coins List */}
       <div className="coins-list-container">
@@ -370,7 +932,12 @@ const CoinMarketCapList = () => {
         </div>
         <div className="coins-grid">
           {filteredCoins.map((coin, index) => (
-            <div key={coin.id} className="coin-item">
+            <div 
+              key={coin.id} 
+              className="coin-item clickable"
+              onClick={() => handleCoinClick(coin)}
+              title={`Click to view ${coin.name} RSI`}
+            >
               <div className="coin-rank">#{coin.cmc_rank}</div>
               <div className="coin-info">
                 <div className="coin-name">{coin.name}</div>
@@ -381,10 +948,151 @@ const CoinMarketCapList = () => {
                   </div>
                 )}
               </div>
+              <div className="rsi-indicator">
+                <span>View RSI</span>
+              </div>
             </div>
           ))}
         </div>
       </div>
+      
+      {/* RSI Modal */}
+      {showRSIModal && (
+        <div className="modal-overlay" onClick={() => setShowRSIModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedCoin?.name} ({selectedCoin?.symbol}) - 1-Hour RSI</h2>
+              <button 
+                className="modal-close"
+                onClick={() => setShowRSIModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {rsiModalLoading ? (
+                <div className="modal-loading">
+                  <div className="loading-spinner"></div>
+                  <div>Loading RSI data...</div>
+                </div>
+              ) : rsiModalData?.error ? (
+                <div className="modal-error">
+                  <p>{rsiModalData.error}</p>
+                  <button 
+                    onClick={() => fetchCoinRSI(selectedCoin?.symbol)}
+                    className="retry-button"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : rsiModalData ? (
+                <>
+                  {/* Current RSI Display */}
+                  <div className="modal-rsi-main">
+                    <div className="modal-rsi-gauge">
+                      <div className="modal-rsi-value">
+                <span className="modal-rsi-number">
+                          {rsiModalData.currentRSI?.toFixed(2) || '0.00'}
+                        </span>
+                        <span className="modal-rsi-label">RSI (14)</span>
+                      </div>
+                      <div 
+                        className="modal-rsi-status"
+                        style={{
+                          background: getRSIStatus(rsiModalData.currentRSI || 0).bgColor,
+                          color: getRSIStatus(rsiModalData.currentRSI || 0).color,
+                        }}
+                      >
+                        {getRSIStatus(rsiModalData.currentRSI || 0).status}
+                      </div>
+                    </div>
+                    
+                    <div className="modal-price-info">
+                      <div className="modal-price-card">
+                        <h4>Current Price</h4>
+                        <div className="modal-price-value">
+                          ${rsiModalData.currentPrice?.toFixed(4) || '0.0000'}
+                        </div>
+                        <div className={`modal-price-change ${(rsiModalData.change24h || 0) >= 0 ? 'positive' : 'negative'}`}>
+                          {(rsiModalData.change24h || 0) >= 0 ? '+' : ''}{rsiModalData.change24h?.toFixed(2) || '0.00'}% (24h)
+                        </div>
+                      </div>
+                      <div className="modal-price-card">
+                        <h4>MACD (12,26,9)</h4>
+                        <div className="modal-price-value" title="MACD Line">
+                          MACD: {rsiModalData.macd != null ? rsiModalData.macd.toFixed(4) : '—'}
+                        </div>
+                        <div className="modal-price-change" title="Signal Line">
+                          Signal: {rsiModalData.macdSignal != null ? rsiModalData.macdSignal.toFixed(4) : '—'}
+                        </div>
+                        <div className="modal-price-hist" title="Histogram (MACD - Signal)" style={{
+                          color: (rsiModalData.macdHistogram || 0) >= 0 ? '#059669' : '#dc2626',
+                          fontWeight: 600
+                        }}>
+                          Hist: {rsiModalData.macdHistogram != null ? rsiModalData.macdHistogram.toFixed(4) : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RSI Progress Bar */}
+                  <div className="modal-rsi-progress">
+                    <div className="modal-rsi-bar-bg">
+                      <div 
+                        className="modal-rsi-bar-fill"
+                        style={{
+                          width: `${(rsiModalData.currentRSI || 0)}%`,
+                          background: getRSIStatus(rsiModalData.currentRSI || 0).color
+                        }}
+                      ></div>
+                      <div className="modal-rsi-markers">
+                        <span style={{ left: '30%' }}>30</span>
+                        <span style={{ left: '50%' }}>50</span>
+                        <span style={{ left: '70%' }}>70</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Historical RSI Data */}
+                  <div className="modal-rsi-history">
+                    <h4>Last 12 Hours RSI Values</h4>
+                    <div className="modal-history-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Time (PKT)</th>
+                            <th>Price</th>
+                            <th>RSI</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rsiModalData.historicalData?.slice(-12).reverse().map((item, index) => {
+                            const status = getRSIStatus(item.rsi);
+                            return (
+                              <tr key={index}>
+                                <td>{item.formattedTime}</td>
+                                <td>${item.price.toFixed(4)}</td>
+                                <td>{item.rsi.toFixed(2)}</td>
+                                <td>
+                                  <span style={{ color: status.color, fontWeight: '600' }}>
+                                    {status.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
