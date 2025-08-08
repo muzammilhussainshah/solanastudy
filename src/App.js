@@ -2,6 +2,327 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
+// RSI Component with real-time analysis
+const RSIAnalysis = () => {
+  const [rsiData, setRsiData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [historicalData, setHistoricalData] = useState([]);
+
+  // RSI Calculation Function (Fixed for accurate timing)
+  const calculateRSI = (prices, period = 14) => {
+    if (prices.length < period + 1) return null;
+    
+    let gains = [];
+    let losses = [];
+    
+    // Calculate price changes
+    for (let i = 1; i < prices.length; i++) {
+      const change = prices[i] - prices[i - 1];
+      gains.push(change > 0 ? change : 0);
+      losses.push(change < 0 ? Math.abs(change) : 0);
+    }
+    
+    if (gains.length < period) return null;
+    
+    // Calculate initial average gain and loss
+    let avgGain = gains.slice(0, period).reduce((sum, gain) => sum + gain, 0) / period;
+    let avgLoss = losses.slice(0, period).reduce((sum, loss) => sum + loss, 0) / period;
+    
+    // For the first RSI calculation
+    if (gains.length === period) {
+      if (avgLoss === 0) return 100;
+      const rs = avgGain / avgLoss;
+      return 100 - (100 / (1 + rs));
+    }
+    
+    // Calculate RSI using Wilder's smoothing for subsequent periods
+    for (let i = period; i < gains.length; i++) {
+      avgGain = ((avgGain * (period - 1)) + gains[i]) / period;
+      avgLoss = ((avgLoss * (period - 1)) + losses[i]) / period;
+    }
+    
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  };
+
+  // Fetch RSI Data
+  const fetchRSIData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch last 100 hours of data for RSI calculation
+      const response = await axios.get('https://api.binance.com/api/v3/klines', {
+        params: {
+          symbol: 'SOLUSDT',
+          interval: '1h',
+          limit: 100
+        }
+      });
+      
+      const data = response.data;
+      const closePrices = data.map(candle => parseFloat(candle[4])); // Close prices
+      
+      // Calculate current RSI
+      const currentRSI = calculateRSI(closePrices);
+      const currentPrice = closePrices[closePrices.length - 1];
+      
+      // Calculate RSI for historical display (last 24 hours)
+      // Fix: Calculate RSI for each specific candle using exact data up to that point
+      const historicalRSI = [];
+      
+      // Start from index 14 (after we have enough data for RSI calculation)
+      for (let i = 14; i < data.length; i++) {
+        const pricesUpToThisPoint = data.slice(0, i + 1).map(candle => parseFloat(candle[4]));
+        const rsiValue = calculateRSI(pricesUpToThisPoint);
+        const utcTime = new Date(data[i][0]);
+        const karachiTime = new Date(utcTime.getTime() + (5 * 60 * 60 * 1000));
+        const timeStr = karachiTime.toISOString().split('T')[1].split(':').slice(0, 2).join(':');
+        
+        if (rsiValue && rsiValue > 0) {
+          historicalRSI.push({
+            time: karachiTime,
+            price: parseFloat(data[i][4]),
+            rsi: rsiValue,
+            formattedTime: timeStr + ' PKT',
+            fullDateTime: karachiTime.toISOString().replace('T', ' ').split('.')[0] + ' PKT'
+          });
+        }
+      }
+      
+      // Get last 24 hours for display
+      const last24Hours = historicalRSI.slice(-24);
+      
+      setRsiData({
+        currentRSI: currentRSI,
+        currentPrice: currentPrice,
+        previousRSI: last24Hours.length > 1 ? last24Hours[last24Hours.length - 2].rsi : null,
+        change24h: data.length >= 24 ? ((currentPrice - parseFloat(data[data.length - 25][4])) / parseFloat(data[data.length - 25][4])) * 100 : 0
+      });
+      
+      setHistoricalData(last24Hours);
+      setLastUpdate(new Date());
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to fetch RSI data');
+      setLoading(false);
+      console.error('RSI fetch error:', err);
+    }
+  };
+
+  // Initial fetch and auto-refresh setup
+  useEffect(() => {
+    fetchRSIData();
+    
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(fetchRSIData, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get RSI status and color
+  const getRSIStatus = (rsi) => {
+    if (rsi >= 70) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
+    if (rsi <= 30) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
+    return { status: 'Neutral', color: '#3b82f6', bgColor: '#eff6ff' };
+  };
+
+  if (loading) {
+    return (
+      <div className="trading-container">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">Loading RSI Data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="trading-container">
+        <div className="error-container" style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '16px',
+          padding: '2rem',
+          textAlign: 'center',
+          color: '#dc2626'
+        }}>
+          <h3>Error</h3>
+          <p>{error}</p>
+          <button 
+            onClick={fetchRSIData}
+            className="modern-button modern-button-primary"
+            style={{ marginTop: '1rem' }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const rsiStatus = getRSIStatus(rsiData?.currentRSI || 0);
+
+  return (
+    <div className="trading-container">
+      {/* Header */}
+      <div className="rsi-header">
+        <h2>Solana (SOL) RSI Analysis</h2>
+        <div className="last-update">
+          Last Updated: {lastUpdate ? new Date(lastUpdate.getTime() + (5 * 60 * 60 * 1000)).toISOString().split('T')[1].split(':').slice(0, 2).join(':') + ' PKT' : ''}
+          <button 
+            onClick={fetchRSIData}
+            className="refresh-button"
+            style={{
+              marginLeft: '1rem',
+              padding: '0.5rem 1rem',
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.875rem'
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Main RSI Display */}
+      <div className="rsi-main-display">
+        <div className="rsi-gauge-container">
+          <div className="rsi-gauge">
+            <div className="rsi-value">
+              <span className="rsi-number">{rsiData?.currentRSI?.toFixed(2) || '0.00'}</span>
+              <span className="rsi-label">RSI (14)</span>
+            </div>
+            <div 
+              className="rsi-status"
+              style={{
+                background: rsiStatus.bgColor,
+                color: rsiStatus.color,
+                padding: '0.5rem 1rem',
+                borderRadius: '20px',
+                fontWeight: '600',
+                marginTop: '1rem'
+              }}
+            >
+              {rsiStatus.status}
+            </div>
+          </div>
+          
+          <div className="rsi-progress-bar">
+            <div className="rsi-bar-bg">
+              <div 
+                className="rsi-bar-fill"
+                style={{
+                  width: `${(rsiData?.currentRSI || 0)}%`,
+                  background: rsiStatus.color
+                }}
+              ></div>
+              <div className="rsi-markers">
+                <span style={{ left: '30%' }}>30</span>
+                <span style={{ left: '50%' }}>50</span>
+                <span style={{ left: '70%' }}>70</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Current Price Info */}
+        <div className="price-info">
+          <div className="price-card">
+            <h3>Current Price</h3>
+            <div className="price-value">${rsiData?.currentPrice?.toFixed(4) || '0.0000'}</div>
+            <div className={`price-change ${(rsiData?.change24h || 0) >= 0 ? 'positive' : 'negative'}`}>
+              {(rsiData?.change24h || 0) >= 0 ? '+' : ''}{rsiData?.change24h?.toFixed(2) || '0.00'}% (24h)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RSI Interpretation */}
+      <div className="rsi-interpretation">
+        <h3>RSI Interpretation</h3>
+        <div className="interpretation-grid">
+          <div className="interpretation-item oversold">
+            <div className="range">0 - 30</div>
+            <div className="meaning">Oversold</div>
+            <div className="description">Potential buying opportunity</div>
+          </div>
+          <div className="interpretation-item neutral">
+            <div className="range">30 - 70</div>
+            <div className="meaning">Neutral</div>
+            <div className="description">Normal trading range</div>
+          </div>
+          <div className="interpretation-item overbought">
+            <div className="range">70 - 100</div>
+            <div className="meaning">Overbought</div>
+            <div className="description">Potential selling opportunity</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent RSI History */}
+      <div className="rsi-history">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>Last 24 Hours RSI Values</h3>
+          <div style={{ 
+            background: '#eff6ff', 
+            color: '#3b82f6', 
+            padding: '0.5rem 1rem', 
+            borderRadius: '6px', 
+            fontSize: '0.875rem',
+            fontWeight: '600'
+          }}>
+            All times in PKT (Karachi Time - matches TradingView)
+          </div>
+        </div>
+        <div className="history-table-container">
+          <table className="history-table">
+            <thead>
+              <tr>
+                <th>Time (PKT)</th>
+                <th>Price</th>
+                <th>RSI</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historicalData.slice(-12).reverse().map((item, index) => {
+                const status = getRSIStatus(item.rsi);
+                return (
+                  <tr key={index}>
+                    <td>{item.formattedTime}</td>
+                    <td>${item.price.toFixed(4)}</td>
+                    <td>{item.rsi.toFixed(2)}</td>
+                    <td>
+                      <span 
+                        style={{
+                          color: status.color,
+                          fontWeight: '600'
+                        }}
+                      >
+                        {status.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ClosingPriceTable = () => {
   const [processedData, setProcessedData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1519,4 +1840,52 @@ const ProfitablePatterns = ({ processedData }) => {
   );
 };
 
-export default ClosingPriceTable;
+// Main App Component with Navigation
+const App = () => {
+  const [activeTab, setActiveTab] = useState('trading');
+
+  const tabs = [
+    { id: 'trading', label: 'Trading Analysis' },
+    { id: 'rsi', label: 'RSI' }
+  ];
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'trading':
+        return <ClosingPriceTable />;
+      case 'rsi':
+        return <RSIAnalysis />;
+      default:
+        return <ClosingPriceTable />;
+    }
+  };
+
+  return (
+    <div className="app-container">
+      {/* Header with Navigation Tabs */}
+      <header className="app-header">
+        <div className="header-content">
+          <h1 className="app-title">Crypto Trading Analytics</h1>
+          <nav className="nav-tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </header>
+      
+      {/* Main Content */}
+      <main className="app-main">
+        {renderContent()}
+      </main>
+    </div>
+  );
+};
+
+export default App;
