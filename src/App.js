@@ -49,7 +49,7 @@ const CoinMarketCapList = () => {
           params: {
             vs_currency: 'usd',
             order: 'market_cap_desc',
-            per_page: 100,
+            per_page: 250,
             page: 1,
             sparkline: false
           }
@@ -80,7 +80,7 @@ const CoinMarketCapList = () => {
           const cmcResponse = await axios.get('https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest', {
             params: {
               start: 1,
-              limit: 100
+              limit: 250
             },
             headers: {
               'X-CMC_PRO_API_KEY': 'e9661759-0d4d-4e08-844d-15f8a62c7575'
@@ -383,11 +383,17 @@ const CoinMarketCapList = () => {
         const timeStr = karachiTime.toISOString().split('T')[1].split(':').slice(0, 2).join(':');
         
         if (rsiValue && rsiValue > 0) {
+          // Calculate MACD for this specific point
+          const { macd, signal, histogram } = calculateMACD(pricesUpToThisPoint);
+          
           historicalRSI.push({
             time: karachiTime,
             price: parseFloat(data[i][4]),
             rsi: rsiValue,
-            formattedTime: timeStr + ' PKT'
+            formattedTime: timeStr + ' PKT',
+            macd: macd,
+            macdSignal: signal,
+            macdHistogram: histogram
           });
         }
       }
@@ -466,8 +472,8 @@ const CoinMarketCapList = () => {
         // MACD (previous closed candle)
         const { macd, signal, histogram } = calculateMACD(previousClosePrices);
         
-        // Check if RSI is below 35 (oversold/downtrend)
-        const rsiCondition = currentRSI && currentRSI < 35;
+        // Check if RSI is below 39 (oversold/downtrend)
+        const rsiCondition = currentRSI && currentRSI < 39;
         const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd < signal);
         if (rsiCondition && macdOk) {
           oversoldCoins.push({
@@ -538,8 +544,8 @@ const CoinMarketCapList = () => {
         // MACD (previous closed candle)
         const { macd, signal, histogram } = calculateMACD(previousClosePrices);
         
-        // Check if RSI is above 62 (overbought/uptrend)
-        const rsiCondition = currentRSI && currentRSI > 62;
+        // Check if RSI is above 66 (overbought/uptrend)
+        const rsiCondition = currentRSI && currentRSI > 66;
         const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd > signal);
         if (rsiCondition && macdOk) {
           overboughtCoins.push({
@@ -732,7 +738,7 @@ const CoinMarketCapList = () => {
       {/* Downtrend Analysis Progress */}
       {isAnalyzingDowntrend && (
         <div className="downtrend-analysis-progress">
-          <h3>Analyzing Downtrend (RSI &lt; 35)</h3>
+          <h3>Analyzing Downtrend (RSI &lt; 39)</h3>
           <div className="analysis-info">
             <div>Checking RSI for each coin...</div>
             <div className="current-analyzing">
@@ -754,7 +760,7 @@ const CoinMarketCapList = () => {
       {/* Uptrend Analysis Progress */}
       {isAnalyzingUptrend && (
         <div className="uptrend-analysis-progress">
-          <h3>Analyzing Uptrend (RSI &gt; 62)</h3>
+          <h3>Analyzing Uptrend (RSI &gt; 66)</h3>
           <div className="analysis-info">
             <div>Checking RSI for each coin...</div>
             <div className="current-analyzing">
@@ -779,7 +785,7 @@ const CoinMarketCapList = () => {
           <div className="results-header">
             <h3>Downtrend Analysis Results</h3>
             <div className="results-info">
-              Found <strong>{downtrendResults.length}</strong> coins with RSI below 35 (Oversold)
+              Found <strong>{downtrendResults.length}</strong> coins with RSI below 39 (Oversold)
             </div>
             <button 
               onClick={() => setShowDowntrendResults(false)}
@@ -835,7 +841,7 @@ const CoinMarketCapList = () => {
             </div>
           ) : (
             <div className="no-results">
-              <p>No coins found with RSI below 35.</p>
+              <p>No coins found with RSI below 39.</p>
               <p>All analyzed coins are currently above the oversold threshold.</p>
             </div>
           )}
@@ -848,7 +854,7 @@ const CoinMarketCapList = () => {
           <div className="results-header">
             <h3>Uptrend Analysis Results</h3>
             <div className="results-info">
-              Found <strong>{uptrendResults.length}</strong> coins with RSI above 62 (Overbought)
+              Found <strong>{uptrendResults.length}</strong> coins with RSI above 66 (Overbought)
             </div>
             <button 
               onClick={() => setShowUptrendResults(false)}
@@ -904,7 +910,7 @@ const CoinMarketCapList = () => {
             </div>
           ) : (
             <div className="no-results">
-              <p>No coins found with RSI above 62.</p>
+              <p>No coins found with RSI above 66.</p>
               <p>All analyzed coins are currently below the overbought threshold.</p>
             </div>
           )}
@@ -1056,7 +1062,19 @@ const CoinMarketCapList = () => {
 
                   {/* Historical RSI Data */}
                   <div className="modal-rsi-history">
-                    <h4>Last 12 Hours RSI Values</h4>
+                    <h4>Last 12 Hours RSI & MACD Values</h4>
+                    <div style={{
+                      background: '#f0f7ff',
+                      border: '1px solid #bfdeff',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      marginBottom: '1rem',
+                      fontSize: '0.875rem',
+                      color: '#1976d2'
+                    }}>
+                      <strong>MACD Guide:</strong> MACD Line (12-26 EMA), Signal Line (9 EMA of MACD), Histogram (MACD - Signal). 
+                      Green histogram = bullish momentum, Red histogram = bearish momentum.
+                    </div>
                     <div className="modal-history-table">
                       <table>
                         <thead>
@@ -1064,6 +1082,9 @@ const CoinMarketCapList = () => {
                             <th>Time (PKT)</th>
                             <th>Price</th>
                             <th>RSI</th>
+                            <th>MACD</th>
+                            <th>Signal</th>
+                            <th>Histogram</th>
                             <th>Status</th>
                           </tr>
                         </thead>
@@ -1075,6 +1096,15 @@ const CoinMarketCapList = () => {
                                 <td>{item.formattedTime}</td>
                                 <td>${item.price.toFixed(4)}</td>
                                 <td>{item.rsi.toFixed(2)}</td>
+                                <td className="macd-column">
+                                  {item.macd != null ? item.macd.toFixed(4) : '—'}
+                                </td>
+                                <td className="macd-column">
+                                  {item.macdSignal != null ? item.macdSignal.toFixed(4) : '—'}
+                                </td>
+                                <td className={`macd-column ${(item.macdHistogram || 0) >= 0 ? 'macd-positive' : 'macd-negative'}`}>
+                                  {item.macdHistogram != null ? item.macdHistogram.toFixed(4) : '—'}
+                                </td>
                                 <td>
                                   <span style={{ color: status.color, fontWeight: '600' }}>
                                     {status.status}
@@ -1178,12 +1208,18 @@ const RSIAnalysis = () => {
         const timeStr = karachiTime.toISOString().split('T')[1].split(':').slice(0, 2).join(':');
         
         if (rsiValue && rsiValue > 0) {
+          // Calculate MACD for this specific point
+          const { macd, signal, histogram } = calculateMACD(pricesUpToThisPoint);
+          
           historicalRSI.push({
             time: karachiTime,
             price: parseFloat(data[i][4]),
             rsi: rsiValue,
             formattedTime: timeStr + ' PKT',
-            fullDateTime: karachiTime.toISOString().replace('T', ' ').split('.')[0] + ' PKT'
+            fullDateTime: karachiTime.toISOString().replace('T', ' ').split('.')[0] + ' PKT',
+            macd: macd,
+            macdSignal: signal,
+            macdHistogram: histogram
           });
         }
       }
@@ -1367,7 +1403,7 @@ const RSIAnalysis = () => {
       {/* Recent RSI History */}
       <div className="rsi-history">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Last 24 Hours RSI Values</h3>
+          <h3 style={{ margin: 0 }}>Last 24 Hours RSI & MACD Values</h3>
           <div style={{ 
             background: '#eff6ff', 
             color: '#3b82f6', 
@@ -1379,6 +1415,18 @@ const RSIAnalysis = () => {
             All times in PKT (Karachi Time - matches TradingView)
           </div>
         </div>
+        <div style={{
+          background: '#f0f7ff',
+          border: '1px solid #bfdeff',
+          borderRadius: '6px',
+          padding: '0.75rem',
+          marginBottom: '1rem',
+          fontSize: '0.875rem',
+          color: '#1976d2'
+        }}>
+          <strong>MACD Guide:</strong> MACD Line (12-26 EMA), Signal Line (9 EMA of MACD), Histogram (MACD - Signal). 
+          Green histogram = bullish momentum, Red histogram = bearish momentum.
+        </div>
         <div className="history-table-container">
           <table className="history-table">
             <thead>
@@ -1386,6 +1434,9 @@ const RSIAnalysis = () => {
                 <th>Time (PKT)</th>
                 <th>Price</th>
                 <th>RSI</th>
+                <th>MACD</th>
+                <th>Signal</th>
+                <th>Histogram</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -1397,6 +1448,15 @@ const RSIAnalysis = () => {
                     <td>{item.formattedTime}</td>
                     <td>${item.price.toFixed(4)}</td>
                     <td>{item.rsi.toFixed(2)}</td>
+                    <td className="macd-column">
+                      {item.macd != null ? item.macd.toFixed(4) : '—'}
+                    </td>
+                    <td className="macd-column">
+                      {item.macdSignal != null ? item.macdSignal.toFixed(4) : '—'}
+                    </td>
+                    <td className={`macd-column ${(item.macdHistogram || 0) >= 0 ? 'macd-positive' : 'macd-negative'}`}>
+                      {item.macdHistogram != null ? item.macdHistogram.toFixed(4) : '—'}
+                    </td>
                     <td>
                       <span 
                         style={{
