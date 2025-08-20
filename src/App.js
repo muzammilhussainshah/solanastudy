@@ -19,6 +19,7 @@ const CoinMarketCapList = () => {
   const [downtrendResults, setDowntrendResults] = useState([]);
   const [showDowntrendResults, setShowDowntrendResults] = useState(false);
   const [useMACDConfirmation, setUseMACDConfirmation] = useState(false);
+  const [useRSIConfirmation, setUseRSIConfirmation] = useState(false);
   const [isAnalyzingUptrend, setIsAnalyzingUptrend] = useState(false);
   const [uptrendProgress, setUptrendProgress] = useState(0);
   const [uptrendResults, setUptrendResults] = useState([]);
@@ -429,8 +430,8 @@ const CoinMarketCapList = () => {
 
   // Get RSI status and color
   const getRSIStatus = (rsi) => {
-    if (rsi >= 70) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
-    if (rsi <= 30) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
+    if (rsi > 66) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
+    if (rsi < 39) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
     return { status: 'Neutral', color: '#3b82f6', bgColor: '#eff6ff' };
   };
 
@@ -474,8 +475,26 @@ const CoinMarketCapList = () => {
         
         // Check if RSI is below 39 (oversold/downtrend)
         const rsiCondition = currentRSI && currentRSI < 39;
-        const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd < signal);
-        if (rsiCondition && macdOk) {
+        const macdCondition = macd != null && signal != null && macd < signal;
+        
+        // Apply analysis based on selected checkboxes
+        let shouldInclude = false;
+        
+        if (useRSIConfirmation && useMACDConfirmation) {
+          // Both RSI and MACD must be true (Combined)
+          shouldInclude = rsiCondition && macdCondition;
+        } else if (useRSIConfirmation) {
+          // Only RSI condition
+          shouldInclude = rsiCondition;
+        } else if (useMACDConfirmation) {
+          // Only MACD condition
+          shouldInclude = macdCondition;
+        } else {
+          // Default: RSI only (if no checkbox selected)
+          shouldInclude = rsiCondition;
+        }
+        
+        if (shouldInclude) {
           oversoldCoins.push({
             ...coin,
             rsi: currentRSI,
@@ -546,8 +565,26 @@ const CoinMarketCapList = () => {
         
         // Check if RSI is above 66 (overbought/uptrend)
         const rsiCondition = currentRSI && currentRSI > 66;
-        const macdOk = !useMACDConfirmation || (macd != null && signal != null && macd > signal);
-        if (rsiCondition && macdOk) {
+        const macdCondition = macd != null && signal != null && macd > signal;
+        
+        // Apply analysis based on selected checkboxes
+        let shouldInclude = false;
+        
+        if (useRSIConfirmation && useMACDConfirmation) {
+          // Both RSI and MACD must be true (Combined)
+          shouldInclude = rsiCondition && macdCondition;
+        } else if (useRSIConfirmation) {
+          // Only RSI condition
+          shouldInclude = rsiCondition;
+        } else if (useMACDConfirmation) {
+          // Only MACD condition
+          shouldInclude = macdCondition;
+        } else {
+          // Default: RSI only (if no checkbox selected)
+          shouldInclude = rsiCondition;
+        }
+        
+        if (shouldInclude) {
           overboughtCoins.push({
             ...coin,
             rsi: currentRSI,
@@ -692,14 +729,41 @@ const CoinMarketCapList = () => {
           >
             {isAnalyzingDowntrend ? 'Analyzing...' : 'Analyze Downtrend'}
           </button>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
-            <input 
-              type="checkbox" 
-              checked={useMACDConfirmation}
-              onChange={(e) => setUseMACDConfirmation(e.target.checked)}
-            />
-            <span>Use MACD confirmation</span>
-          </label>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '1rem', 
+            marginRight: '1rem',
+            padding: '0.5rem 1rem',
+            background: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <span style={{ 
+              fontSize: '0.875rem', 
+              fontWeight: '600', 
+              color: '#374151',
+              marginRight: '0.5rem'
+            }}>
+              Analysis Mode:
+            </span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="checkbox" 
+                checked={useRSIConfirmation}
+                onChange={(e) => setUseRSIConfirmation(e.target.checked)}
+              />
+              <span style={{ fontSize: '0.875rem' }}>RSI Only</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="checkbox" 
+                checked={useMACDConfirmation}
+                onChange={(e) => setUseMACDConfirmation(e.target.checked)}
+              />
+              <span style={{ fontSize: '0.875rem' }}>MACD Only</span>
+            </label>
+          </div>
           <button 
             onClick={analyzeUptrend}
             disabled={isAnalyzingUptrend || isAnalyzingDowntrend || loading}
@@ -738,9 +802,14 @@ const CoinMarketCapList = () => {
       {/* Downtrend Analysis Progress */}
       {isAnalyzingDowntrend && (
         <div className="downtrend-analysis-progress">
-          <h3>Analyzing Downtrend (RSI &lt; 39)</h3>
+          <h3>Analyzing Downtrend - {useRSIConfirmation && useMACDConfirmation ? 'RSI < 39 + MACD' : useRSIConfirmation ? 'RSI < 39 Only' : useMACDConfirmation ? 'MACD Only' : 'RSI < 39 Only'}</h3>
           <div className="analysis-info">
-            <div>Checking RSI for each coin...</div>
+            <div>
+              {useRSIConfirmation && useMACDConfirmation ? 'Checking RSI < 39 AND MACD bearish for each coin...' :
+               useRSIConfirmation ? 'Checking RSI < 39 for each coin...' :
+               useMACDConfirmation ? 'Checking MACD bearish for each coin...' :
+               'Checking RSI < 39 for each coin...'}
+            </div>
             <div className="current-analyzing">
               Currently analyzing: <strong>{currentAnalyzingCoin}</strong>
             </div>
@@ -760,9 +829,14 @@ const CoinMarketCapList = () => {
       {/* Uptrend Analysis Progress */}
       {isAnalyzingUptrend && (
         <div className="uptrend-analysis-progress">
-          <h3>Analyzing Uptrend (RSI &gt; 66)</h3>
+          <h3>Analyzing Uptrend - {useRSIConfirmation && useMACDConfirmation ? 'RSI > 66 + MACD' : useRSIConfirmation ? 'RSI > 66 Only' : useMACDConfirmation ? 'MACD Only' : 'RSI > 66 Only'}</h3>
           <div className="analysis-info">
-            <div>Checking RSI for each coin...</div>
+            <div>
+              {useRSIConfirmation && useMACDConfirmation ? 'Checking RSI > 66 AND MACD bullish for each coin...' :
+               useRSIConfirmation ? 'Checking RSI > 66 for each coin...' :
+               useMACDConfirmation ? 'Checking MACD bullish for each coin...' :
+               'Checking RSI > 66 for each coin...'}
+            </div>
             <div className="current-analyzing">
               Currently analyzing: <strong>{currentAnalyzingCoin}</strong>
             </div>
@@ -785,7 +859,12 @@ const CoinMarketCapList = () => {
           <div className="results-header">
             <h3>Downtrend Analysis Results</h3>
             <div className="results-info">
-              Found <strong>{downtrendResults.length}</strong> coins with RSI below 39 (Oversold)
+              Found <strong>{downtrendResults.length}</strong> coins with {
+                useRSIConfirmation && useMACDConfirmation ? 'RSI < 39 AND MACD bearish' :
+                useRSIConfirmation ? 'RSI < 39 (Oversold)' :
+                useMACDConfirmation ? 'MACD bearish signal' :
+                'RSI < 39 (Oversold)'
+              }
             </div>
             <button 
               onClick={() => setShowDowntrendResults(false)}
@@ -841,8 +920,13 @@ const CoinMarketCapList = () => {
             </div>
           ) : (
             <div className="no-results">
-              <p>No coins found with RSI below 39.</p>
-              <p>All analyzed coins are currently above the oversold threshold.</p>
+              <p>No coins found with {
+                useRSIConfirmation && useMACDConfirmation ? 'RSI < 39 AND MACD bearish' :
+                useRSIConfirmation ? 'RSI < 39' :
+                useMACDConfirmation ? 'MACD bearish signal' :
+                'RSI < 39'
+              }.</p>
+              <p>All analyzed coins are currently above the specified threshold.</p>
             </div>
           )}
         </div>
@@ -854,7 +938,12 @@ const CoinMarketCapList = () => {
           <div className="results-header">
             <h3>Uptrend Analysis Results</h3>
             <div className="results-info">
-              Found <strong>{uptrendResults.length}</strong> coins with RSI above 66 (Overbought)
+              Found <strong>{uptrendResults.length}</strong> coins with {
+                useRSIConfirmation && useMACDConfirmation ? 'RSI > 66 AND MACD bullish' :
+                useRSIConfirmation ? 'RSI > 66 (Overbought)' :
+                useMACDConfirmation ? 'MACD bullish signal' :
+                'RSI > 66 (Overbought)'
+              }
             </div>
             <button 
               onClick={() => setShowUptrendResults(false)}
@@ -910,8 +999,13 @@ const CoinMarketCapList = () => {
             </div>
           ) : (
             <div className="no-results">
-              <p>No coins found with RSI above 66.</p>
-              <p>All analyzed coins are currently below the overbought threshold.</p>
+              <p>No coins found with {
+                useRSIConfirmation && useMACDConfirmation ? 'RSI > 66 AND MACD bullish' :
+                useRSIConfirmation ? 'RSI > 66' :
+                useMACDConfirmation ? 'MACD bullish signal' :
+                'RSI > 66'
+              }.</p>
+              <p>All analyzed coins are currently below the specified threshold.</p>
             </div>
           )}
         </div>
@@ -1053,9 +1147,9 @@ const CoinMarketCapList = () => {
                         }}
                       ></div>
                       <div className="modal-rsi-markers">
-                        <span style={{ left: '30%' }}>30</span>
+                        <span style={{ left: '39%' }}>39</span>
                         <span style={{ left: '50%' }}>50</span>
-                        <span style={{ left: '70%' }}>70</span>
+                        <span style={{ left: '66%' }}>66</span>
                       </div>
                     </div>
                   </div>
@@ -1256,8 +1350,8 @@ const RSIAnalysis = () => {
 
   // Get RSI status and color
   const getRSIStatus = (rsi) => {
-    if (rsi >= 70) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
-    if (rsi <= 30) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
+    if (rsi > 66) return { status: 'Overbought', color: '#dc2626', bgColor: '#fef2f2' };
+    if (rsi < 39) return { status: 'Oversold', color: '#059669', bgColor: '#f0fdf4' };
     return { status: 'Neutral', color: '#3b82f6', bgColor: '#eff6ff' };
   };
 
@@ -1358,9 +1452,9 @@ const RSIAnalysis = () => {
                 }}
               ></div>
               <div className="rsi-markers">
-                <span style={{ left: '30%' }}>30</span>
+                <span style={{ left: '39%' }}>39</span>
                 <span style={{ left: '50%' }}>50</span>
-                <span style={{ left: '70%' }}>70</span>
+                <span style={{ left: '66%' }}>66</span>
               </div>
             </div>
           </div>
@@ -1383,17 +1477,17 @@ const RSIAnalysis = () => {
         <h3>RSI Interpretation</h3>
         <div className="interpretation-grid">
           <div className="interpretation-item oversold">
-            <div className="range">0 - 30</div>
+            <div className="range">0 - 39</div>
             <div className="meaning">Oversold</div>
             <div className="description">Potential buying opportunity</div>
           </div>
           <div className="interpretation-item neutral">
-            <div className="range">30 - 70</div>
+            <div className="range">39 - 66</div>
             <div className="meaning">Neutral</div>
             <div className="description">Normal trading range</div>
           </div>
           <div className="interpretation-item overbought">
-            <div className="range">70 - 100</div>
+            <div className="range">66 - 100</div>
             <div className="meaning">Overbought</div>
             <div className="description">Potential selling opportunity</div>
           </div>
